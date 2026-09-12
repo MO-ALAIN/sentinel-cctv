@@ -1,4 +1,4 @@
-# Submission readiness — 11 September 2026
+# Submission readiness — 12 September 2026
 
 ## Understand the challenge
 
@@ -92,3 +92,18 @@ Allowed video link options from the saved guide: unlisted YouTube or Google Driv
 `verification/public-source-demonstration.webm` and its JSON/CSV show real manual onboarding, processing, a new representative watchlist alert, saved crop, acknowledgement and history export. The source is licensed Finnish footage, not the team's own capture. See PUBLIC_SAMPLE_PROVENANCE.md. All 600 source frames were decoded in the refined run.
 
 Four complete author-labelled plate appearances were evaluated. Baseline: TP 2 / FP 2 / FN 2. Refined diagnostic replay: TP 2 / FP 0 / FN 2. Precision improved from 50% to 100%; recall stayed 50%. Only this small reused clip is covered; Indian accuracy remains unproven. The two-second repeat-alert rule retains observations, so it does not hide duplicate sightings from the evaluator. The partial/incorrect historical reads remain in their original sessions.
+
+
+## Hosting decision, 12 September
+
+Deployment is optional in the saved official submission guide: participants
+"may additionally provide a URL to their hosted platform". Source: saved
+`../project-review/sentinel-problems-2026-09-06.txt`, lines 547-550. Today's direct
+requests to home, problems, FAQs and phases timed out; retrieval evidence is private
+under `docs/verification/site-20260912/retrieval.json`. Recheck for changes before
+submitting. Keep the full app on the local RTX 3050 without hosting charges.
+GitHub collaboration is available at https://github.com/MO-ALAIN/sentinel-cctv .
+
+Required submission work remains presentation (PPT/PDF), HLD, own-source video,
+government-source video plus timestamped output report, and reviewer-accessible
+links. Cloud hosting is not a current priority and does not replace any of these.

@@ -7,9 +7,13 @@ tracking, durable plate observations, representative watchlists and operator ale
 See [current results and remaining submission work](docs/CURRENT_STATUS.md) for
 the verified 11 September status, preview instructions and evidence artifacts.
 
-## Deploy on Render and collaborate
+## Collaborate now; optional hosting later
 
-See [Render deployment instructions](docs/DEPLOYMENT.md). The Blueprint builds
+The full application runs locally for free using your own hardware. Cloud hosting
+is currently deferred; the saved competition guide makes a hosted URL optional.
+Your friend can clone this public repository and you can add them as a collaborator.
+
+For future hosting, see [Render deployment instructions](docs/DEPLOYMENT.md). The Blueprint builds
 this React + FastAPI application with CPU AI models and persistent storage.
 It requires paid compute and disk; review the quoted cost before activating it.
 GitHub stores the code; Render serves the website. GitHub Pages cannot run this backend.

@@ -1,4 +1,10 @@
-# Render deployment and GitHub collaboration
+# Optional Render deployment and GitHub collaboration
+
+**Current decision (12 September): keep operation free and defer cloud hosting.**
+Use the full local RTX 3050 app and public GitHub collaboration. The saved official
+submission guide says a hosted URL may additionally be provided; it is optional.
+Fresh official-site checks timed out. The instructions below are for future use.
+Do not activate the paid Blueprint as part of the current submission work.
 
 This repository contains the complete application. `render.yaml` proposes one
 paid 2 CPU / 4 GB service in Singapore with a 10 GB persistent disk. Confirm the
