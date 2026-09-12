@@ -1,4 +1,23 @@
-# Current status — 11 September 2026
+# Current status — 12 September 2026
+
+## GitHub and hosting
+
+Public source: https://github.com/MO-ALAIN/sentinel-cctv . Add collaborators in
+repository Settings. Render configuration, strong generated login passwords,
+persistent storage and deployment instructions are included. The first Linux CI
+run passed 37 regressions, the frontend build and CPU container build/startup.
+An additional health-privacy regression and authenticated AI-readiness smoke test
+are included in the follow-up release; check GitHub Actions for its final result.
+Render YAML passed the official JSON schema; CPU/GPU Compose configuration passed.
+No paid hosting service has been activated and there is no hosted URL yet.
+
+The public repository excludes credentials, databases, videos and evidence captures.
+Evidence references below refer to private local artifacts, not public GitHub files.
+The working project remains in `E:/gujarat police/repo`; its original Git remote
+belongs to the earlier repository. The clean public Git checkout is
+`E:/gujarat police/repo/.release/sentinel-cctv`. Publish only reviewed source there;
+do not push the original database-containing Git history to the public repository.
+Local rollback: `data/before-deployment-20260911-233634.zip`.
 
 ## Preview
 
@@ -25,7 +44,7 @@ The independent label manifest, exact matches/misses and baseline/refined report
 2. Demonstrate actual source-system interoperability and a real cross-camera designated-vehicle journey. One public file plus one organizer gateway does not establish two integrated departmental VMS systems.
 3. Obtain verified camera coordinates, department/ownership/storage metadata and survey boundaries/footprints. Thirty organizer records have IDs/names but no supplied coordinates; geographic coverage remains unmeasured.
 4. Measure sustainable concurrent capacity, reconnect/restart recovery, latency and resource use. The approximately 50 evaluation cameras and 80,000-camera design target are not demonstrated laptop capacity.
-5. Review both videos with their reports, finalize presentation/HLD, verify team/portal fields and viewer-accessible links, and submit before the freshly checked deadline. **Nothing has been uploaded or submitted.**
+5. Review both videos with their reports, finalize presentation/HLD, verify team/portal fields and viewer-accessible links, and submit before the freshly checked deadline. **No competition submission has been made. The source code is now public on GitHub; demo artifacts remain local.**
 
 Department/case isolation, organizational identity, retention enforcement, tamper-evident evidence and regional rollout remain production work. The architecture document distinguishes these proposals from implemented local controls.
 

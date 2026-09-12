@@ -25,7 +25,7 @@ def require_role(request, role):
         raise HTTPException(403, 'Insufficient role for this action')
 
 async def access_middleware(request, call_next):
-    if not request.url.path.startswith('/api/'):
+    if not request.url.path.startswith('/api/') and request.url.path != '/health':
         return await call_next(request)
     # Cookies are never accepted for cross-site mutation requests.
     origin = request.headers.get('origin')

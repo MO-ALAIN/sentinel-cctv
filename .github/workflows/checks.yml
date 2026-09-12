@@ -43,6 +43,10 @@ jobs:
           curl --fail http://127.0.0.1:8000/healthz
           curl --fail http://127.0.0.1:8000/dashboard/
           test "$(curl --silent -o /dev/null -w '%{http_code}' http://127.0.0.1:8000/api/cameras)" = "401"
+      - name: Verify installed AI models and secure session
+        env:
+          SENTINEL_SMOKE_PASSWORD: ci-only-password-9d917c8
+        run: python deploy/smoke.py
       - name: Container logs
         if: always()
         run: docker logs sentinel-smoke || true

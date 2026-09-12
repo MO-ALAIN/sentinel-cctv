@@ -40,3 +40,15 @@ def test_render_login_works_behind_tls_proxy_and_sets_secure_cookie(monkeypatch)
         assert 'HttpOnly' in response.headers['set-cookie']
         assert 'SameSite=strict' in response.headers['set-cookie']
     SESSIONS.clear(); FAILURES.clear()
+
+
+def test_legacy_health_alias_requires_login(monkeypatch):
+    monkeypatch.setenv('CCTV_ADMIN_PASSWORD', 'test-password-with-entropy')
+    app = FastAPI(); app.middleware('http')(access_middleware)
+    @app.get('/health')
+    def details(): return {'private': 'operational details'}
+    @app.get('/healthz')
+    def live(): return {'status': 'ok'}
+    with TestClient(app) as client:
+        assert client.get('/health').status_code == 401
+        assert client.get('/healthz').json() == {'status':'ok'}

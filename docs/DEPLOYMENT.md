@@ -54,9 +54,9 @@ database changes; restore a compatible application backup if a migration require
 ## Verification and submission limits
 
 CI runs backend regressions, builds the frontend and builds/smoke-tests the CPU
-container. CI must finish successfully before treating container deployment as
-verified. The local Docker daemon is unavailable, so no local container build is
-claimed. A real Render deployment still needs a live smoke test and stream benchmark.
+container. The first GitHub Linux container build/startup passed on 12 September 2026.
+The local Docker daemon is unavailable; container testing runs in GitHub Actions.
+A real Render deployment still needs a live smoke test and stream benchmark.
 
 The small public CarPark diagnostic rerun produced two correct confirmed plates,
 zero false confirmed plates and two missed appearances (50% recall); it was not a
