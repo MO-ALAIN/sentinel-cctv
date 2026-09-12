@@ -12,7 +12,7 @@ WORKDIR /app/backend
 COPY backend/requirements.txt ./requirements.txt
 RUN pip install --no-cache-dir -r requirements.txt
 COPY backend/app ./app
-COPY backend/setup_models.py backend/evaluate_run.py ./
+COPY backend/setup_models.py backend/evaluate_run.py backend/benchmark_video.py ./
 COPY deploy /app/deploy
 COPY --from=frontend /build/dist /app/frontend/dist
 RUN useradd --uid 10001 --create-home sentinel && mkdir -p /var/lib/sentinel/media /var/lib/sentinel/demo /app/backend/app/models && chown -R sentinel:sentinel /var/lib/sentinel /app
@@ -25,11 +25,12 @@ USER root
 ARG TORCH_INDEX_URL=https://download.pytorch.org/whl/cpu
 RUN pip install --no-cache-dir torch==2.6.0 torchvision==0.21.0 --index-url ${TORCH_INDEX_URL}
 COPY backend/requirements-ai.txt ./requirements-ai.txt
-RUN pip install --no-cache-dir -r requirements-ai.txt
+COPY backend/requirements-plate-ocr.txt ./requirements-plate-ocr.txt
+RUN pip install --no-cache-dir -r requirements-plate-ocr.txt
 USER sentinel
 
 # Explicit build-time downloads; the deployed image starts without downloading weights.
 USER root
 ENV CCTV_OCR_MODEL_DIR=/opt/sentinel-ocr
-RUN CCTV_DATA_DIR=/tmp/model-setup python setup_models.py --plate-detector && chown -R sentinel:sentinel /opt/sentinel-ocr /app/backend/app/models && rm -rf /tmp/model-setup
+RUN CCTV_DATA_DIR=/tmp/model-setup python setup_models.py --plate-detector --plate-ocr && chown -R sentinel:sentinel /opt/sentinel-ocr /app/backend/app/models && rm -rf /tmp/model-setup
 USER sentinel

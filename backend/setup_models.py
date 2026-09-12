@@ -14,6 +14,7 @@ os.environ.setdefault('MPLCONFIGDIR', str(DATA_DIR / 'matplotlib'))
 def main():
     parser=argparse.ArgumentParser(description=__doc__)
     parser.add_argument('--plate-detector',action='store_true',help='Install the pinned third-party plate localization baseline')
+    parser.add_argument('--plate-ocr',action='store_true',help='Install pinned optional CPU plate OCR model')
     args=parser.parse_args()
     from ultralytics.utils.downloads import safe_download
     from ultralytics import YOLO
@@ -47,6 +48,21 @@ def main():
         del checkpoint
         shutil.copyfile(staged,MODEL_DIR/'license_plate_detector.pt')
         print('Pinned plate localization baseline installed; accuracy requires evaluation on target footage.')
+    if args.plate_ocr:
+        from app.services.plate_ocr import MODEL_HASH, CONFIG_HASH
+        destination = MODEL_DIR / 'plate_ocr'
+        destination.mkdir(parents=True, exist_ok=True)
+        for filename, expected in [('cct_s_v2_global.onnx', MODEL_HASH), ('cct_s_v2_global_plate_config.yaml', CONFIG_HASH)]:
+            target = destination / filename
+            if target.is_file() and hashlib.sha256(target.read_bytes()).hexdigest() == expected:
+                continue
+            temporary = target.with_suffix(target.suffix + '.part')
+            with urlopen('https://github.com/ankandrew/cnn-ocr-lp/releases/download/arg-plates/' + filename, timeout=45) as response, temporary.open('wb') as output:
+                shutil.copyfileobj(response, output)
+            if hashlib.sha256(temporary.read_bytes()).hexdigest() != expected:
+                raise ValueError('Plate OCR checksum mismatch')
+            temporary.replace(target)
+        print('Optional plate OCR installed; select only after source-specific evaluation.')
     easyocr.Reader(['en'],gpu=torch.cuda.is_available(),model_storage_directory=str(OCR_MODEL_DIR),download_enabled=True,verbose=False)
     print('Vehicle and OCR models ready.')
 

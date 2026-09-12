@@ -47,6 +47,12 @@ jobs:
         env:
           SENTINEL_SMOKE_PASSWORD: ci-only-password-9d917c8
         run: python deploy/smoke.py
+      - name: Verify optional plate OCR initialization
+        run: >-
+          docker exec -e ANPR_OCR_ENGINE=plate_onnx sentinel-smoke python -c
+          "from app.services.anpr_service import anpr_manager;
+          assert anpr_manager.ocr_engine == 'PLATE_ONNX_CCT_S_V2';
+          assert anpr_manager.get_telemetry()['ready']"
       - name: Container logs
         if: always()
         run: docker logs sentinel-smoke || true

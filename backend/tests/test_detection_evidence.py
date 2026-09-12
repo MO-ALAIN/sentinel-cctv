@@ -113,3 +113,28 @@ def test_recording_completion_is_distinct_from_missing_frames():
     assert worker.get_health()['connection']=='FRAME_DELIVERY_ERROR'
     worker.status='DISCONNECTED'
     assert worker.get_health()['connection']=='DISCONNECTED'
+
+
+def test_roi_padding_does_not_attach_a_neighboring_vehicle_plate():
+    from app.services.plate_detector import ModularPlateDetector
+    detector = ModularPlateDetector.__new__(ModularPlateDetector)
+    detector.mode = 'vehicle_roi'
+    # Vehicle is x=50..150; padded crop starts at x=40. High-score plate center
+    # at x=154 belongs to a neighbor. The lower-score plate is on this vehicle.
+    detector.trained_detector = SimpleNamespace(detect=lambda image: [
+        {'bbox':[108,45,120,55], 'confidence':.99},
+        {'bbox':[40,45,70,55], 'confidence':.8}])
+    result = detector.detect_plates(np.zeros((200,220,3),dtype=np.uint8),[50,50,150,150])
+    assert len(result) == 1 and result[0]['abs_bbox'] == [80,85,110,95]
+
+
+def test_full_frame_fallback_keeps_plate_on_requested_vehicle():
+    from app.services.plate_detector import ModularPlateDetector
+    detector = ModularPlateDetector.__new__(ModularPlateDetector)
+    detector.mode = 'full_frame'
+    detector.trained_detector = SimpleNamespace(detect=lambda image: [
+        {'bbox':[140,60,180,80], 'confidence':.99}])
+    frame = np.zeros((100,220,3),dtype=np.uint8)
+    assert detector.detect_plates(frame,[0,0,90,99]) == []
+    assert len(detector.detect_plates(frame,[120,0,200,99])) == 1
+    assert len(detector.detect_plates(frame)) == 1

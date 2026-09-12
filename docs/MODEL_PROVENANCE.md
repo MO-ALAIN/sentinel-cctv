@@ -20,3 +20,14 @@ To install the same baselines after AI dependencies:
 ```
 
 No original government video files were downloaded. The application consumes the authorized stream; evidence screenshots are captures of the working interface.
+
+
+## Optional plate OCR added 12 September
+
+[Fast Plate OCR](https://github.com/ankandrew/fast-plate-ocr) 1.1.0,
+CCT-S-v2 global model, ONNX Runtime 1.30.0 on CPU. The project declares MIT.
+Model/config SHA-256 values are enforced in `backend/app/services/plate_ocr.py`.
+Original release URLs are in `backend/setup_models.py`; downloads are explicit.
+This is another pretrained baseline, not team-trained. OCR_VALIDATION.md reports
+our own separate-scene comparison, duplicate penalty and unknown upstream data overlap.
+The current local preview uses CPU plate OCR; earlier GPU EasyOCR reports are historical.

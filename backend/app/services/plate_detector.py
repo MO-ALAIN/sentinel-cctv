@@ -149,6 +149,22 @@ class TrainedPlateDetector:
         return candidates
 
 
+def plate_belongs_to_vehicle(plate_bbox, vehicle_bbox) -> bool:
+    """Require the plate center and most of its area to lie on the tracked vehicle.
+
+    Padding helps detection, but a neighboring car's plate must not become this
+    vehicle's identity. This conservative geometric check does not resolve occlusion.
+    """
+    px1, py1, px2, py2 = plate_bbox
+    vx1, vy1, vx2, vy2 = vehicle_bbox
+    area = (px2 - px1) * (py2 - py1)
+    if px2 <= px1 or py2 <= py1 or vx2 <= vx1 or vy2 <= vy1:
+        return False
+    center_x, center_y = (px1 + px2) / 2, (py1 + py2) / 2
+    overlap = max(0, min(px2, vx2) - max(px1, vx1)) * max(0, min(py2, vy2) - max(py1, vy1))
+    return vx1 <= center_x <= vx2 and vy1 <= center_y <= vy2 and overlap / area >= 0.8
+
+
 class ModularPlateDetector:
     """
     Orchestrates Primary Trained Plate Detector and Secondary CV Heuristic Detector
@@ -201,7 +217,8 @@ class ModularPlateDetector:
                         crop_x1 + bx2,
                         crop_y1 + by2
                     ]
-                    candidates.append(cand)
+                    if plate_belongs_to_vehicle(cand["abs_bbox"], vehicle_bbox):
+                        candidates.append(cand)
 
         # Step 3 Fallback / Hybrid Mode: Try full_frame detection
         if not candidates and (self.mode == "full_frame" or self.mode == "hybrid"):
@@ -211,7 +228,8 @@ class ModularPlateDetector:
 
             for cand in ff_candidates:
                 cand["abs_bbox"] = cand["bbox"]
-                candidates.append(cand)
+                if vehicle_bbox is None or plate_belongs_to_vehicle(cand["abs_bbox"], vehicle_bbox):
+                    candidates.append(cand)
 
         candidates.sort(key=lambda c: c["confidence"], reverse=True)
         return candidates

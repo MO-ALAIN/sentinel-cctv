@@ -38,16 +38,46 @@ Open http://127.0.0.1:8000/dashboard/#home on this computer. Use Live Cameras to
 - Fixed low-quality OCR votes, valid-vote loss through tiny crops, over-range heuristic scores, deletion of ambiguous embedded OCR characters, and immediate duplicate watchlist notifications. Every sighting remains available for review. Finished recordings are now distinguished from failed frame delivery.
 - **38 backend tests pass in Linux CI.** Production build and browser assessment error/recovery checks pass. Both real-source videos exercise the actual interface and export workflow.
 
-## Measured recognition result
+## Recognition improvement on 12 September
 
-The initial full public clip produced two correct appearances, one duplicate observation, one incorrect plate and two misses: event precision/recall 50%/50%. After the measured fixes, replaying all 600 frames produced two correct appearances, no false-positive observations and two misses: precision 100%, recall 50%, F1 66.7% **on only four labelled appearances in that same diagnostic clip**. It is not a held-out result or evidence of broad accuracy. Misses remain unresolved. Old runs and their incorrect observations are retained as evaluation evidence, separated by session.
+The local app now uses optional pinned CCT-S-v2 plate OCR on CPU, with GPU vehicle/
+plate detection and the existing source-format, quality and independent-frame
+confirmation gates. EasyOCR remains the default for unconfigured installs and the
+fallback if the optional engine is unavailable. The UI reports the actual engine.
 
-The independent label manifest, exact matches/misses and baseline/refined reports are in docs/verification. Source attribution, download hashes, the limited Finnish camera format and representative watchlist scope are in [Public sample provenance](PUBLIC_SAMPLE_PROVENANCE.md).
+On the separate complete ParkingGarage recording (1,140 frames), EasyOCR produced
+TP 2 / FP 2 / FN 2. The optional engine produced TP 4 / FP 0 / FN 0, in 65.30 seconds
+versus 70.20 seconds. On the reused complete CarPark recording (600 frames), the
+optional engine produced TP 4 / FP 1 / FN 0; the false positive was a duplicate
+observation, not an incorrect string. Its event precision/recall are 80%/100%.
+These are eight appearances of four vehicles across two Finnish scenes. Upstream
+training overlap is unknown; no Indian or government accuracy claim is made.
+See [full methodology and limits](OCR_VALIDATION.md).
+
+The actual local app also decoded all 1,140 garage frames, recognized the four
+plates, generated two automatic representative watchlist alerts, and returned
+ZPN720 history across PUBLIC-CARPARK and PUBLIC-GARAGE. Browser verification passed.
+This proves matching across two real recorded scenes, not a verified original-time
+journey, geographic route or integration with two departmental VMS products.
+Locations and original recording times remain unknown. The interface now keeps
+observations visible instead of showing a large empty map when coordinates are absent.
+
+Plate association now rejects candidates outside the tracked vehicle, including
+neighboring plates in ROI padding and full-frame fallback. New regression cases
+cover that behavior and weakest-character confidence/color handling. **43 backend
+tests, the frontend build and the real two-recording browser check pass locally.**
+The public CI run for the new release must also pass before acceptance.
+
+Earlier evaluation reports, including incorrect observations, are preserved under
+`docs/verification`; the previous 31/38-test results and demo videos are historical.
+The saved deadline plan is [DEADLINE_PLAN.md](DEADLINE_PLAN.md): build/validate on
+12–13 September, final evidence and documents on 14 September, submission checks
+on 15 September. The initial presentation/HLD drafts already exist.
 
 ## What remains before a strong submission
 
 1. Improve and independently validate Indian-plate recognition on complete readable windows, including misses, false matches and end-to-end delay. No government plate has been confirmed in the reported window.
-2. Demonstrate actual source-system interoperability and a real cross-camera designated-vehicle journey. One public file plus one organizer gateway does not establish two integrated departmental VMS systems.
+2. Demonstrate actual source-system interoperability and a designated-vehicle journey with verified original time/location. Two public recordings now match through real recognition; they do not establish two integrated departmental VMS systems.
 3. Obtain verified camera coordinates, department/ownership/storage metadata and survey boundaries/footprints. Thirty organizer records have IDs/names but no supplied coordinates; geographic coverage remains unmeasured.
 4. Measure sustainable concurrent capacity, reconnect/restart recovery, latency and resource use. The approximately 50 evaluation cameras and 80,000-camera design target are not demonstrated laptop capacity.
 5. Review both videos with their reports, finalize presentation/HLD, verify team/portal fields and viewer-accessible links, and submit before the freshly checked deadline. **No competition submission has been made. The source code is now public on GitHub; demo artifacts remain local.**

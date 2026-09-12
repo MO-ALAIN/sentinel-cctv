@@ -53,6 +53,14 @@ window open. It serves the built interface at http://127.0.0.1:8000/dashboard/ .
 Previously connected network sources resume after restart; other sources stay stopped.
 The local preview process must have network access to reach organizer feeds.
 
+## Optional plate-specific OCR
+
+After the regular AI setup, install `backend/requirements-plate-ocr.txt` and run
+`python backend/setup_models.py --plate-ocr`. Set `ANPR_OCR_ENGINE=plate_onnx` in
+`backend/.env` and restart. The pinned model runs on CPU, leaving GPU capacity for
+vehicle/plate detection. EasyOCR remains the default and fallback if setup fails;
+System Status reports the actual engine. See [measured comparison](docs/OCR_VALIDATION.md).
+
 ## Configure sources
 
 Copy backend/.env.example to backend/.env and supply your authorized organizer

@@ -1,0 +1,3 @@
+-r requirements-ai.txt
+fast-plate-ocr==1.1.0
+onnxruntime==1.30.0

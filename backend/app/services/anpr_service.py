@@ -1,4 +1,4 @@
-from app.paths import OCR_MODEL_DIR
+from app.paths import OCR_MODEL_DIR, MODEL_DIR
 import os
 import re
 import time
@@ -162,6 +162,8 @@ class ANPRManager:
         self.settings = get_settings()
         self.ocr_reader = None
         self.gpu_available = False
+        self.ocr_engine = "UNAVAILABLE"
+        self.ocr_initialization_error = None
 
         # Multi-frame candidate buffers per vehicle track: Dict[track_key, List[CandidateFrame]]
         self._candidate_buffers: Dict[str, List[Dict[str, Any]]] = {}
@@ -198,9 +200,20 @@ class ANPRManager:
         self.gpu_available = torch is not None and torch.cuda.is_available() and self.settings.ANPR_USE_GPU
         if torch is None or not self.settings.AI_ENABLED:
             return
+        if self.settings.ANPR_OCR_ENGINE == 'plate_onnx':
+            try:
+                from app.services.plate_ocr import PlateOCR
+                self.ocr_reader = PlateOCR(MODEL_DIR / 'plate_ocr', self.settings.PLATE_OCR_MIN_CHAR_CONFIDENCE)
+                self.ocr_engine = 'PLATE_ONNX_CCT_S_V2'
+                self.gpu_available = False
+                return
+            except Exception as error:
+                self.ocr_initialization_error = type(error).__name__ + ': optional plate OCR unavailable; using EasyOCR fallback'
+                logger.warning(self.ocr_initialization_error)
         try:
             import easyocr
             self.ocr_reader = easyocr.Reader(['en'], gpu=self.gpu_available, verbose=False, model_storage_directory=str(OCR_MODEL_DIR), download_enabled=self.settings.ALLOW_MODEL_DOWNLOAD)
+            self.ocr_engine = "EasyOCR"
             logger.info(f"EasyOCR Reader initialized (GPU Acceleration: {self.gpu_available}).")
         except Exception as e:
             logger.error(f"Failed to initialize EasyOCR Reader: {e}")
@@ -338,7 +351,9 @@ class ANPRManager:
             return None
 
         ocr_start = time.time()
-        variants = MultiVariantOCRPreprocessor.generate_variants(top_cand["plate_crop"])
+        variants = ([{"variant_id":"PLATE_ORIGINAL", "image":top_cand["plate_crop"]}]
+                    if self.ocr_engine == "PLATE_ONNX_CCT_S_V2"
+                    else MultiVariantOCRPreprocessor.generate_variants(top_cand["plate_crop"]))
 
         best_variant_result = None
         highest_composite_score = -1.0
@@ -520,7 +535,9 @@ class ANPRManager:
         avg_det = (self.total_det_latency_ms / self.ocr_runs_count) if self.ocr_runs_count > 0 else 0.0
         avg_ocr = (self.total_ocr_latency_ms / self.ocr_runs_count) if self.ocr_runs_count > 0 else 0.0
         return {
-            "ocr_engine": "EasyOCR",
+            "ocr_engine": self.ocr_engine,
+            "requested_ocr_engine": self.settings.ANPR_OCR_ENGINE,
+            "ocr_initialization_error": self.ocr_initialization_error,
             "default_plate_format": "INDIA",
             "camera_plate_formats": self.settings.ANPR_CAMERA_FORMATS,
             "plate_detector": "TRAINED_BASELINE" if modular_plate_detector.trained_detector.model is not None else "CV_HEURISTIC",

@@ -36,7 +36,7 @@ These are the site's common qualitative areas; the order below is not a publishe
 | 1. Successful test case | 30 organizer records, actual cam06 decode/view/GPU detection, timestamped CSV and video | Strengthen recognition and prepare the designated-vehicle test; source health is intermittent |
 | 2. Solution presentation | Eight-slide PDF/HTML explaining model, workflow, technologies, benefits and limits | Public-source evidence added; independently validate Indian recognition and capacity |
 | 3. Solution architecture | Component diagram, heterogeneous ingress, security, source prerequisites, scale and cost worksheet | Concrete vendor/department data, measured sizing and priced infrastructure proposal |
-| 4. Working platform and demonstration | Local application, 31 backend checks, simple navigation and actual government UI capture | Public-source analytics → watchlist → alert video now recorded; final review and Indian recognition validation remain |
+| 4. Working platform and demonstration | Local application, 43 backend checks, simple navigation and actual government UI capture | Public-source analytics → watchlist → alert video now recorded; final review and Indian recognition validation remain |
 | 5. Video analytics output | 89 government detection events in a bounded 120-second window; source/session/time-basis columns | Label complete windows; measure exact-match precision/recall, misses, false alerts and latency |
 | 6. Scalability and PoC readiness | Regional/edge plan, bandwidth/storage arithmetic, retries, buffer bounds | Complete-pipeline concurrency, recovery drills and resource measurements; 50 and 80,000 are targets, not demonstrated capacity |
 | 7. Submission completeness | Local presentation, HLD, source, runbooks, government video and reports | Final video review, consistent accessible links, portal fields and actual submission |
@@ -60,7 +60,7 @@ The government report's allowance for vehicle detection does not eliminate the s
 - `verification/government-ui-detections-sept11.csv`: the report downloaded through the visible UI button.
 - `verification/government-detections-sept11.csv` and `.json`: bounded run from 09:09:03 to 09:11:03 UTC; 89 detection events, 14 session-local tracks, five sessions; 98/119 health samples reported streaming, zero API errors and zero confirmed plates. Observed classes: motorcycle and truck. These are model outputs, not independently verified ground truth.
 - `verification/government-summary-sept11.json`: compact computed evidence/video summary.
-- Automated suite: 31 passed; frontend production build passed. New checks cover export scope/provenance, formula escaping, empty exports, low-quality OCR exclusion and preservation of valid votes through intervening bad crops.
+- Automated suite: 43 passed; frontend production build passed. New checks cover export scope/provenance, formula escaping, empty exports, low-quality OCR exclusion and preservation of valid votes through intervening bad crops.
 
 The original rollback remains `E:\gujarat police\.rollback\checkpoint-20260905-233347.zip`. Today's pre-edit source snapshot is `data/before-evidence-20260911-142701.zip`. Preserve current database/evidence separately before any restore.
 
@@ -107,3 +107,14 @@ GitHub collaboration is available at https://github.com/MO-ALAIN/sentinel-cctv .
 Required submission work remains presentation (PPT/PDF), HLD, own-source video,
 government-source video plus timestamped output report, and reviewer-accessible
 links. Cloud hosting is not a current priority and does not replace any of these.
+
+
+## 12 September engineering progress
+
+See OCR_VALIDATION.md for the measured new engine: garage TP4/FP0/FN0 on a separate
+four-appearance scene, and reused car-park TP4/FP1-duplicate/FN0. Actual app operation
+now matches ZPN720 across two public recordings and produces new representative
+alerts. Original timestamps, locations, government plate accuracy and two-VMS
+interoperability remain unverified. Final submission videos/documents are scheduled
+for 14 September; do not substitute these small foreign-scene percentages for an
+Indian benchmark. New local suite: 43 passed; build and real browser check passed.

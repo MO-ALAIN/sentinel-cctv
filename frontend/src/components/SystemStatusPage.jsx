@@ -6,7 +6,7 @@ export default function SystemStatusPage({ totalCameras, connectedCount, health 
   const entries = [
     ['API service', !!health, health ? 'Responding' : 'Unavailable', Activity],
     ['Vehicle detector', !!ai?.ready, ai?.initialization_error || ai?.model_name || 'Not initialized', Cpu],
-    ['OCR reader', !!ai?.anpr?.ready, ai?.anpr?.ready ? 'EasyOCR loaded; accuracy requires validation' : 'OCR weights or dependencies unavailable', ShieldCheck],
+    ['OCR reader', !!ai?.anpr?.ready, ai?.anpr?.ready ? `${ai.anpr.ocr_engine || 'OCR'} loaded; accuracy requires validation` : 'OCR weights or dependencies unavailable', ShieldCheck],
     ['Camera feeds', connectedCount > 0, `${connectedCount} connected / ${totalCameras} registered`, Camera],
   ];
   return <div className="police-workspace">
