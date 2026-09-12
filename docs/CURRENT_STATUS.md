@@ -5,9 +5,9 @@
 Public source: https://github.com/MO-ALAIN/sentinel-cctv . Add collaborators in
 repository Settings. Render configuration, strong generated login passwords,
 persistent storage and deployment instructions are included. The final Linux CI
-run passed all 38 regressions, the frontend build, CPU container build/startup,
+run passed all 43 regressions, the frontend build, CPU container build/startup,
 authentication checks and readiness checks for vehicle detection, plate detection
-and OCR. Verified run: https://github.com/MO-ALAIN/sentinel-cctv/actions/runs/34676961143 .
+and OCR. Verified run: https://github.com/MO-ALAIN/sentinel-cctv/actions/runs/34692539002 .
 Render YAML passed the official JSON schema; CPU/GPU Compose configuration passed.
 No paid hosting service has been activated and there is no hosted URL.
 The user chose free operation on 12 September: cloud deployment is deferred.
@@ -36,7 +36,21 @@ Open http://127.0.0.1:8000/dashboard/#home on this computer. Use Live Cameras to
 - Government feed: real cam06 screen recording and a two-minute CSV/JSON report containing 89 detection events, 14 session-local tracks and zero confirmed plate reads. 98/119 health samples reported active frame delivery. Repeated observations are not unique-vehicle counts. This supports the government report's allowance for vehicles OR plates with timestamps.
 - Public-source demonstration: original licensed UVG-VCM Car Park footage was onboarded and processed through the real backend. An automatically recognized plate matched a clearly representative watchlist; the video shows the new alert, evidence, acknowledgement and exported history. Updated video: 64.08 seconds; decoder and browser checks passed. This is foreign recorded footage, not an Indian benchmark or multi-camera journey.
 - Fixed low-quality OCR votes, valid-vote loss through tiny crops, over-range heuristic scores, deletion of ambiguous embedded OCR characters, and immediate duplicate watchlist notifications. Every sighting remains available for review. Finished recordings are now distinguished from failed frame delivery.
-- **38 backend tests pass in Linux CI.** Production build and browser assessment error/recovery checks pass. Both real-source videos exercise the actual interface and export workflow.
+- **43 backend tests pass in Linux CI for the OCR release.** Production build and browser assessment error/recovery checks pass. Both real-source videos exercise the actual interface and export workflow.
+
+## Latest tracking and organizer checks
+
+Cross-class vehicle box suppression removed the duplicate in the complete CarPark
+regression: TP 4 / FP 0 / FN 0, 600 frames in 36.19 seconds. The complete garage
+regression retained TP 4 / FP 0 / FN 0, 1,140 frames in 61.33 seconds. These are two
+reused foreign scenes with four shared vehicles; no Indian/general accuracy claim.
+All 43 backend tests passed locally after this change. See OCR_VALIDATION.md for
+previous results, retained false-positive evidence and overlap-related limitations.
+
+A fresh sequential survey checked 29 organizer feeds: 22 decoded an image, 21 had
+advancing timestamps. Two bounded app checks produced 5 and 13 detection events,
+respectively, with zero confirmed plates. See ORGANIZER_SOURCE_CHECK.md. Readable
+Indian plates and genuinely different VMS evidence remain the main analytics gaps.
 
 ## Recognition improvement on 12 September
 

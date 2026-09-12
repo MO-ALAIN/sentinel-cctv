@@ -118,3 +118,14 @@ alerts. Original timestamps, locations, government plate accuracy and two-VMS
 interoperability remain unverified. Final submission videos/documents are scheduled
 for 14 September; do not substitute these small foreign-scene percentages for an
 Indian benchmark. New local suite: 43 passed; build and real browser check passed.
+
+
+### Latest 12 September regression and source check
+
+Cross-class NMS removed the duplicate observation in the full CarPark run (4 correct,
+0 false, 0 missed) while the full garage regression retained 4/0/0. Both are reused
+scenes of the same four Finnish vehicles; government/Indian accuracy remains
+unproven. Previous results remain in OCR_VALIDATION.md. All 43 local backend tests
+pass. A sequential 29-feed organizer survey and two bounded actual-app vehicle
+reports are described in ORGANIZER_SOURCE_CHECK.md; neither new report confirmed
+a plate. These are supporting measurements, not the final frozen-version videos.

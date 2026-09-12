@@ -23,6 +23,7 @@ class Settings(BaseSettings):
     YOLO_MODEL_NAME: str = "yolov8n.pt"
     YOLO_CONFIDENCE_THRESHOLD: float = 0.30
     YOLO_IOU_THRESHOLD: float = 0.45
+    YOLO_AGNOSTIC_NMS: bool = True
     YOLO_IMAGE_SIZE: int = 640
     YOLO_FRAME_INTERVAL: int = 5
     YOLO_DEVICE: str = "auto"  # auto, cuda, cpu

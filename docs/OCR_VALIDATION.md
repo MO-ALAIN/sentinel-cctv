@@ -28,6 +28,30 @@ The wall times are slower than source duration. This is complete recorded-video
 processing, not proof of real-time 60 FPS analytics, alert latency, or multi-camera
 capacity. GPU vehicle/plate detection is retained; the new OCR runs on CPU.
 
+## Subsequent cross-class box suppression check
+
+Class-specific vehicle NMS could retain overlapping car and truck boxes before
+ByteTrack, producing a second identity and duplicate plate observation. The latest
+revision defaults `YOLO_AGNOSTIC_NMS=true` in both detection and tracking paths.
+It suppresses overlapping vehicle boxes across classes before assigning track IDs.
+The option can be disabled for a controlled comparison. Existing observations are
+not removed, and the previous duplicate remains penalized in the table above.
+
+| Complete recording, same plate OCR | Correct appearances | Incorrect/duplicate | Missed | Wall time |
+|---|---:|---:|---:|---:|
+| CarPark, 600 frames, cross-class NMS | 4 | 0 | 0 | 36.19 s |
+| ParkingGarage, 1,140 frames, cross-class NMS | 4 | 0 | 0 | 61.33 s |
+
+All observed plates were scored against the unchanged author labels. Both scenes
+are now reused regression samples; this second garage check is not another unseen
+validation source. Eight appearances still represent only four foreign vehicles.
+No general 100% accuracy claim is justified. The wall times are individual runs,
+not a statistically established speedup, and remain slower than source duration.
+Cross-class suppression can reduce recall for heavily overlapping vehicles; crowded
+Indian footage still needs validation. It does not solve every track split or
+ambiguous plate-to-vehicle association. Private comparison:
+`docs/verification/vehicle-nms-comparison-sept12.json`.
+
 ## Changes
 
 - Optional `ANPR_OCR_ENGINE=plate_onnx`; EasyOCR remains default and fallback.

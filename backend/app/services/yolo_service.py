@@ -121,6 +121,8 @@ class YOLOVehicleDetector:
                 source=frame,
                 device=self.device,
                 conf=conf_thresh,
+                agnostic_nms=self.settings.YOLO_AGNOSTIC_NMS,
+                iou=self.settings.YOLO_IOU_THRESHOLD, imgsz=self.settings.YOLO_IMAGE_SIZE,
                 classes=list(VEHICLE_CLASS_MAP.keys()),
                 verbose=False
             )
@@ -211,8 +213,11 @@ class YOLOVehicleDetector:
                 args = SimpleNamespace(**YAML.load(check_yaml(self.settings.YOLO_TRACKER)))
                 self._trackers[camera_id] = PTSByteTracker(args=args,timeout_seconds=self.settings.TRACK_INACTIVE_TIMEOUT_SECONDS)
                 self._sessions[camera_id] = uuid.uuid4().hex
+            # Class-specific NMS can keep both car and truck boxes on one vehicle,
+            # creating duplicate tracks and plate sightings. Suppress before tracking.
             results = self.model.predict(source=frame, device=self.device, conf=conf_thresh,
                 iou=self.settings.YOLO_IOU_THRESHOLD, imgsz=self.settings.YOLO_IMAGE_SIZE,
+                agnostic_nms=self.settings.YOLO_AGNOSTIC_NMS,
                 classes=list(target_class_map.keys()), verbose=False)
             if results:
                 # Ultralytics' ID counter is class-global; scope it to this camera
@@ -428,6 +433,7 @@ class YOLOVehicleDetector:
             "average_latency_ms": round(avg_latency, 2),
             "inference_fps": round(self.inference_fps, 2),
             "confidence_threshold": self.settings.YOLO_CONFIDENCE_THRESHOLD,
+            "class_agnostic_nms": self.settings.YOLO_AGNOSTIC_NMS,
             "frame_sampling_interval": self.settings.YOLO_FRAME_INTERVAL
         }
 
