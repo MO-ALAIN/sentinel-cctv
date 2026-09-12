@@ -1,0 +1,54 @@
+services:
+  app:
+    image: sentinel:${SENTINEL_RELEASE:-local}
+    build:
+      context: .
+      target: ai
+    env_file: deploy/.env
+    environment:
+      SENTINEL_DEPLOYMENT: "true"
+      SENTINEL_ALLOWED_HOSTS: "${SENTINEL_DOMAIN:?Set SENTINEL_DOMAIN},localhost,127.0.0.1"
+      FORWARDED_ALLOW_IPS: "172.30.0.2"
+      CCTV_ADMIN_PASSWORD: "${CCTV_ADMIN_PASSWORD:?Set a unique admin password}"
+      AI_ENABLED: "true"
+    volumes:
+      - sentinel_data:/var/lib/sentinel
+    networks:
+      sentinel:
+        ipv4_address: 172.30.0.3
+    restart: unless-stopped
+    init: true
+    stop_grace_period: 45s
+    security_opt: ["no-new-privileges:true"]
+    cap_drop: ["ALL"]
+    healthcheck:
+      test: ["CMD", "python", "-c", "import urllib.request; urllib.request.urlopen('http://127.0.0.1:8000/healthz', timeout=3)"]
+      interval: 30s
+      timeout: 5s
+      retries: 3
+      start_period: 120s
+  proxy:
+    image: caddy:2-alpine
+    environment:
+      SENTINEL_DOMAIN: "${SENTINEL_DOMAIN:?Set SENTINEL_DOMAIN}"
+    ports: ["80:80", "443:443", "443:443/udp"]
+    volumes:
+      - ./deploy/Caddyfile:/etc/caddy/Caddyfile:ro
+      - caddy_data:/data
+      - caddy_config:/config
+    networks:
+      sentinel:
+        ipv4_address: 172.30.0.2
+    depends_on:
+      app:
+        condition: service_healthy
+    restart: unless-stopped
+networks:
+  sentinel:
+    ipam:
+      config:
+        - subnet: 172.30.0.0/24
+volumes:
+  sentinel_data:
+  caddy_data:
+  caddy_config:

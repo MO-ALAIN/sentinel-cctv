@@ -1,0 +1,48 @@
+name: Checks
+on: [push, pull_request, workflow_dispatch]
+permissions:
+  contents: read
+jobs:
+  backend:
+    runs-on: ubuntu-latest
+    env:
+      AI_ENABLED: "false"
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - run: pip install torch==2.6.0 torchvision==0.21.0 --index-url https://download.pytorch.org/whl/cpu
+      - run: pip install -r backend/requirements-ai.txt
+      - run: python -m pytest backend/tests -q
+  frontend:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+          cache: npm
+          cache-dependency-path: frontend/package-lock.json
+      - run: npm ci
+        working-directory: frontend
+      - run: npm run build
+        working-directory: frontend
+  container:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - run: docker build -t sentinel-check .
+      - name: Verify container startup and authentication
+        run: |
+          docker run -d --name sentinel-smoke -p 8000:8000 -e SENTINEL_DEPLOYMENT=true -e SENTINEL_ALLOWED_HOSTS=localhost,127.0.0.1 -e CCTV_ADMIN_PASSWORD=ci-only-password-9d917c8 sentinel-check
+          for attempt in $(seq 1 60); do
+            if curl --fail --silent http://127.0.0.1:8000/healthz; then break; fi
+            sleep 3
+          done
+          curl --fail http://127.0.0.1:8000/healthz
+          curl --fail http://127.0.0.1:8000/dashboard/
+          test "$(curl --silent -o /dev/null -w '%{http_code}' http://127.0.0.1:8000/api/cameras)" = "401"
+      - name: Container logs
+        if: always()
+        run: docker logs sentinel-smoke || true

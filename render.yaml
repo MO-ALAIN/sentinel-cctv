@@ -1,0 +1,38 @@
+# Paid CPU service. Review Render's quoted cost before creating this Blueprint.
+services:
+  - type: web
+    name: sentinel-cctv
+    runtime: docker
+    plan: 2c-4g
+    region: singapore
+    dockerfilePath: ./Dockerfile
+    dockerContext: .
+    healthCheckPath: /healthz
+    autoDeployTrigger: checksPass
+    numInstances: 1
+    maxShutdownDelaySeconds: 60
+    disk:
+      name: sentinel-data
+      mountPath: /var/lib/sentinel
+      sizeGB: 10
+    envVars:
+      - key: SENTINEL_DEPLOYMENT
+        value: "true"
+      - key: CCTV_ADMIN_PASSWORD
+        generateValue: true
+      - key: CCTV_VIEWER_PASSWORD
+        generateValue: true
+      - key: AI_ENABLED
+        value: "true"
+      - key: YOLO_DEVICE
+        value: cpu
+      - key: ANPR_USE_GPU
+        value: "false"
+      - key: ALLOW_MODEL_DOWNLOAD
+        value: "false"
+      - key: FETCH_CATALOGUE_ON_START
+        value: "false"
+      - key: OMP_NUM_THREADS
+        value: "2"
+      - key: MKL_NUM_THREADS
+        value: "2"

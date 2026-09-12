@@ -1,0 +1,7 @@
+{$SENTINEL_DOMAIN} {
+    header X-Content-Type-Options nosniff
+    header Referrer-Policy same-origin
+    reverse_proxy app:8000 {
+        flush_interval -1
+    }
+}

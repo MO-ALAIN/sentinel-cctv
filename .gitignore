@@ -1,0 +1,49 @@
+# Byte-compiled / optimized files
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+.Python
+
+# Environment & Dependencies
+venv/
+.venv/
+env/
+node_modules/
+.env
+
+# Build outputs
+frontend/dist/
+frontend/build/
+*.egg-info/
+.dist/
+
+# IDE / OS files
+.vscode/
+.idea/
+.DS_Store
+Thumbs.db
+
+# Large weights / dataset archives / videos / evidence
+*.pt
+*.onnx
+*.engine
+*.zip
+demo_videos/
+backend/evidence/
+scratch/
+data/
+.test-runtime/
+.install-temp/
+.npm-cache/
+backend/.env
+Ultralytics/
+*.db-wal
+*.db-shm
+
+# Local release staging and deployment secrets
+.release/
+deploy/.env
+*.db
+*.sqlite
+*.sqlite3
