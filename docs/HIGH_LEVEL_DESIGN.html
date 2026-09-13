@@ -1,0 +1,115 @@
+<!doctype html><meta charset="utf-8"><title>Sentinel High-Level Design</title><style>body{font:11pt Arial,sans-serif;color:#18304b;line-height:1.5}h1{font-size:25pt;color:#123c68}h2{font-size:16pt;margin-top:24pt;break-after:avoid}p,li{orphans:3;widows:3}table{border-collapse:collapse;width:100%;font-size:9pt}th,td{border:1px solid #bccbdb;padding:7px;text-align:left;vertical-align:top}th{background:#eaf2fb}tr{break-inside:avoid}code{font-size:9pt;overflow-wrap:anywhere}.flow{border:1px solid #98b9db;background:#f1f7fd;padding:16px;text-align:center;line-height:2;break-inside:avoid}a{color:#146ab4}@page{size:A4;margin:18mm}</style><h1>Sentinel: registry, video analytics and vehicle investigation</h1>
+<h2>Problem and model choice</h2>
+<p>Separate departmental CCTV systems make inventory, viewing and vehicle investigation fragmented. This implementation combines the compulsory registry/GIS foundation with direct feed aggregation (Model 1 + Model 2). Existing departmental VMS and recordings remain operational. The platform stores investigation metadata and selected evidence crops rather than claiming to replace all departmental recording infrastructure.</p>
+<h2>Implemented architecture</h2>
+<div class="flow">Departmental camera / DVR / VMS / recording<br>↓ RTSP / HTTP / authorized file<br>Camera ingestion worker → YOLO → camera-isolated ByteTrack<br>↓ plate detector + OCR + qualified-frame agreement<br>SQLite WAL observations → transactional watchlist match → durable alerts<br>↓ FastAPI APIs and evidence access<br>React + Leaflet investigation dashboard</div>
+<p>The application is a FastAPI service with camera worker threads. It is not a deployed microservice cluster. Detection model weights are shared, while tracker objects and recognition sessions are separate per camera. Vehicle inference is serialized for a conservative single-GPU baseline; OCR has its own lock. Media PTS drives motion intervals and expiry, with resets for regressions, scene cuts and reconnects. Original camera timestamps must be available to claim original capture time; recordings can be configured with their known UTC start time and media offset. Otherwise stream observations are labelled PTS_ESTIMATED_UTC, anchored to initial reception rather than verified capture time.</p>
+<p>The database uses a fixed, configurable path independent of launch directory. Sighting and matching alert writes form one transaction. A session/track unique index prevents duplicate persistence during retries; a new camera session permits a new observation for reused tracker IDs. Uncertain observations never create confirmed-match alerts. A plate is confirmed after agreement from at least two separate qualified source frames. This score is not a calibrated probability of identity.</p>
+<h2>Registry and source adapters</h2>
+<p>Registry fields cover camera identity, location/district, department, ownership, camera type, source system, source protocol/path, source provenance, coordinates and their provenance, storage/retention, maintenance status and recording start time. Manual and CSV input are validated; camera imports validate the entire file before database writes. Stream credentials are preserved privately and redacted from registry responses.</p>
+<p>Implemented ingress supports RTSP/RTSPS where the installed decoder supports it, HTTP(S) video streams supported by OpenCV/FFmpeg, and recorded files under the media root. A file does not silently substitute for an unavailable network stream. Recorded EOF is explicit and a restart begins a new tracker session. Source metadata is never fabricated from a fixed camera count.</p>
+<p>Analog-camera integration is through the authorized DVR/NVR/VMS output, not a direct analog connection. ONVIF discovery, proprietary SDK integration, PTZ and multi-vendor event federation require additional adapters and vendor testing. The initial catalogue connector uses an organizer-authorized endpoint and configured credentials; it never auto-registers an account.</p>
+<h2>Investigation and interface contract</h2>
+<p><code>CONTRACT.md</code> defines the existing and additive APIs. An observation contains normalized plate, camera ID, tracking session/ID, recognition status/score, observation timestamp and basis, source type/media offset, geographic provenance and optional evidence reference. A trace is an ordered sequence of observed camera appearances. The map draws dashed links only between adjacent observations with coordinates, and does not infer roads or fill missing evidence.</p>
+<p>The operator can search a plate and time/source range, inspect plate crops, export timestamped records and acknowledge watchlist alerts. Admins can manage cameras and watchlists. Audit records cover metadata actions, investigation searches/exports and evidence access. CSV exports neutralize spreadsheet formula prefixes. UI timestamps are presented in IST; transport and exports use timezone-aware UTC timestamps.</p>
+<p>VAHAN, SARTHI, eGujCop/CCTNS, AFIS and NAFIS are integration targets mentioned by the challenge. No direct live connection is claimed. A source column on a supplied watchlist is a provenance label, not evidence that those databases were queried. Biometric integrations require their own authorized data interfaces and modalities; fingerprints cannot be inferred from ordinary traffic video.</p>
+<h2>Security and operation</h2>
+<p>Local development binds to loopback. Without configured passwords, API access is restricted to a local peer and local Host. Network deployments require authentication and a correctly configured HTTPS reverse proxy. Session cookies are HttpOnly and SameSite Strict, with Secure enabled on HTTPS. Admin, operator and viewer roles restrict mutations. Cross-origin mutation requests are rejected. Failed login attempts are limited, sessions expire, and stream/evidence paths are constrained.</p>
+<p>Before departmental production rollout, replace shared environment-configured accounts with an organizational OIDC provider, implement department/case-scoped authorization across every query and stream, centralize and protect audit records, test reverse-proxy trust boundaries, enforce retention, and enable transport/storage encryption and managed secrets. Local audit rows are not tamper-proof evidence storage. Evidence naming is unique, but cryptographic chain-of-custody and legal retention policy are further deployment work.</p>
+<h2>Scale, bandwidth and failure design</h2>
+<p>Recommended expansion: regional ingestion and AI workers close to departmental sources; a metadata/event bus such as Kafka; PostgreSQL/PostGIS for searchable sightings and registry data; S3-compatible evidence storage; central operator APIs. Relays provide selected video to browsers. Reconcile event writes using idempotency keys and a transactional outbox; persist retry queues at regional sites during network loss.</p>
+<p>Illustrative assumptions only: 80,000 feeds at 2 Mb/s would be 160 Gb/s before overhead if all video were centralized. Continuous retention would produce approximately 1.728 PB/day and 25.92 PB/15 days before replication. Keeping source recordings local, processing regionally, sampling AI appropriately and transferring metadata plus selected clips can reduce central requirements. Actual savings require measured event/crop rates and stream demand.</p>
+<p>Capacity model: required analysis frames/s = cameras × analyzed frames/s/camera. Required GPU workers = ceiling(required frames/s ÷ measured sustainable complete-pipeline frames/s/worker ÷ target utilization), plus failure capacity. Benchmark decode, detection, tracking, OCR, storage and network together. The RTX 3050 Laptop GPU in this workspace has 4 GB VRAM; no statewide or 50-camera throughput is assumed from its presence.</p>
+<p>Plan redundant regional nodes, a replicated event broker/database, health checks and reconnect backoff, store-and-forward during disconnection, backup restore exercises, separate control/data networks and versioned model rollout with rollback. Define RPO/RTO jointly with the operator; do not imply measured recovery targets without a drill.</p>
+<h2>Infrastructure and cost worksheet</h2>
+<table>
+<thead>
+<tr>
+<th>Item</th>
+<th>Sizing input</th>
+<th>Cost input still required</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Regional GPU workers</td>
+<td>Measured full-pipeline stream capacity, utilization headroom and failover nodes</td>
+<td>Hardware quote, warranty, power and support</td>
+</tr>
+<tr>
+<td>Decoder/relay servers</td>
+<td>Codec, resolution, live operator demand and transcode fraction</td>
+<td>CPU/GPU licensing and server quote</td>
+</tr>
+<tr>
+<td>Metadata DB</td>
+<td>Daily observations × record/index size × retention × replicas</td>
+<td>SSD capacity, backup and operations</td>
+</tr>
+<tr>
+<td>Evidence storage</td>
+<td>Alerts/day × crop/clip size × retention × redundancy</td>
+<td>Object storage, disks, network and power</td>
+</tr>
+<tr>
+<td>Network</td>
+<td>Per-site source bitrate, metadata rate, selected video access, outage duration</td>
+<td>Provider bandwidth and redundancy tariffs</td>
+</tr>
+<tr>
+<td>Operations</td>
+<td>Monitoring, updates, security, staffing, training and support hours</td>
+<td>Actual organization/service quotations</td>
+</tr>
+</tbody>
+</table>
+<p>A priced deployment proposal needs real measurements and vendor quotes. Invented rupee totals would not be evidence of cost-effectiveness.</p>
+<h2>Department prerequisites</h2>
+<p>Collect source owner and authorized contacts; camera/VMS vendor/model/firmware; stream protocols/codecs/resolution/FPS; credential and VPN requirements; available bandwidth; retention/storage/playback APIs; accurate camera coordinates and coverage polygons; clock synchronization and source timeline; maintenance/AMC details; allowed data sharing and role scope; representative watchlists and update semantics; and expected operator concurrency. Identify public/private cameras and permissions explicitly.</p>
+<h2>Validation and rollout</h2>
+<p>Use the requirement register for current evidence. First prove a small real multi-camera journey; then increase to the available organizer feed count while measuring misses, false matches, ID switches, latency percentiles, GPU memory, queue age and reconnect recovery. Progress from authorized pilot sites to regional deployment before statewide capacity claims. Organizer authentication and GPU inference work. Licensed foreign footage and its author labels now support a working own-source demonstration; representative Indian plate footage, genuinely independent source-system access and verified geographic metadata remain open.</p>
+<h2>Surveyed geographic coverage</h2>
+<p>Validated GeoJSON area/footprint layers are stored transactionally in SQLite. Shapely unions verified camera footprints and intersects/differences each verified boundary in EPSG:6933 using pyproj. React/Leaflet displays survey and uncovered polygons and exports the area report. Representative features are excluded from metrics. This provides geometric gap computation on supplied survey data; operational coverage and visibility require separate verification. See COVERAGE_SURVEYS.md.</p>
+<h2>Vehicle-detection output and evidence limits</h2>
+<p><code>GET /api/detections/export</code> reports recent model observations with camera/source/session, vehicle class, detector class/score, bounding box, media offset and timestamp basis. Heuristic/temporal class changes are explicitly distinguished from the primary COCO class. Each frame retains a snapshot of recognition state; later consensus cannot rewrite an earlier observation. Unconfirmed plate text is blank in CSV. Exports are audited and spreadsheet formula prefixes escaped.</p>
+<p>The API buffer holds at most 100 observations per camera and a combined export returns at most 500. <code>backend/record_detection_report.py</code> collects new observations during a bounded recording window and records health/errors and its sampling scope. Neither output claims exhaustive frame coverage, unique physical-vehicle counts or labelled accuracy. Persistent confirmed sightings remain separate from this transient vehicle-detection report.</p>
+<p>Poor-quality or undersized plate crops do not supply confirmation votes. They preserve earlier qualified independent-frame votes. Persistence requires the current confirmed plate to agree with the accumulated record, avoiding unrelated evidence on a database retry.</p>
+<h2>Source format and notification refinement</h2>
+<p>Camera-specific ANPR_CAMERA_FORMATS defaults to INDIA. FINLAND_STANDARD is an explicitly configured limited car/trailer grammar for the licensed public demonstration. It does not relax organizer-camera validation. Embedded uncertain OCR strokes are rejected instead of silently deleted into a different registration. The recognizer never uses the target watchlist plate as a decoding hint.</p>
+<p>A repeat match within two seconds of source media time for the same camera, session and watchlist entry keeps its sighting but suppresses an immediate duplicate notification. Other cameras, later appearances and new replay sessions remain alertable. Missing media-time evidence does not trigger this suppression. This is notification grouping, not a claim of solved physical-vehicle re-identification.</p>
+<h2>Measured local release — 13 September 2026</h2>
+<p>The optional CCT-S-v2 ONNX OCR engine runs on CPU; pinned weights, source-format
+checks and independent-frame confirmation are retained. Cross-class vehicle NMS
+suppresses overlapping vehicle labels before tracking. OCR_VALIDATION.md preserves
+both earlier failures and complete regression results, with sample-size limits.</p>
+<p>Unified camera workers have atomic admission with MAX_ACTIVE_CAMERAS (default 2).
+This bounds simultaneous decoder/analytics workers without limiting registry size.
+Existing workers are reused; completed recordings release their slot. Reconnecting
+workers still count, and operators can disconnect stalled feeds. Source restoration
+respects the same bound and skips excess saved intents without aborting startup.
+One process owns the local model/worker state; do not multiply web workers to scale
+this SQLite/GPU configuration. Legacy diagnostic/demo tools are separate and must
+not be treated as validated concurrent workloads.</p>
+<p>The real mixed-source check and process-restart drill are in RUNTIME_VALIDATION.md.
+All previous 40 sightings, 2 watchlist entries and 19 alerts survived that restart.
+The chosen network source resumed; recorded sources did not auto-replay. Two workers
+is a configurable resource limit, not a measured sustained throughput rating or a
+substitute for regional sizing. Longer soak tests, queue/backpressure design and
+independent vendor integration remain necessary for production rollout.</p>
+<h2>Final engineering revision — 14 September 2026</h2>
+<p>The local backend suite passes <strong>62 tests</strong>. Temporary OCR state now stores quality
+metadata instead of retaining full video frames and is limited to 1,000 recently used
+tracks by default. Confirmed sightings remain durable, including after cache eviction.
+A controlled 12-track test retained 74,649,600 source-image bytes before the change
+and zero after; this measures retained source arrays, not whole-process RAM.</p>
+<p>Confirmation uses a bounded window of independent qualified reads, rejects invalid
+confidence and weak OCR segments, and associates confidence with the winning plate.
+Camera resets use exact camera identity. Reading diagnostics never starts capture;
+explicit diagnostic jobs require an operator and run off the API event loop, with
+one diagnostic job at a time. Recognition queries also remain off the event loop.</p>
+<p>Both complete foreign-video regressions preserved TP4/FP0/FN0: CarPark, 600 frames
+in 55.45 seconds; ParkingGarage, 1,140 frames in 104.34 seconds. These reused scenes
+contain the same four vehicles. They do not establish Indian accuracy, independent
+VMS interoperability, or real-time throughput. Timings are slower than the earlier
+runs; no speed improvement is claimed. See OCR_VALIDATION.md for history.</p>
+<p>Rollback: <code>data/before-final-anpr-sept13.zip</code> and matching database snapshot.</p>

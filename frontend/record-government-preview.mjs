@@ -16,9 +16,17 @@ try {
   await page.goto('http://127.0.0.1:8000/dashboard/');
   await page.getByRole('navigation').getByRole('button',{name:'Camera registry',exact:true}).click();
   await page.getByRole('heading',{name:'Camera registry & GIS',exact:true}).waitFor();
-  await page.waitForTimeout(7000);
+  await page.getByRole('button',{name:'Imports & reports',exact:true}).click();
+  await page.getByRole('button',{name:'Import organizer catalogue',exact:true}).click();
+  await page.getByText('Organizer catalogue refreshed.',{exact:true}).waitFor({timeout:60000});
+  await page.waitForTimeout(3000);
+  await page.getByRole('button',{name:'Camera list & map',exact:true}).click();
+  await page.getByLabel('Filter cameras').fill(cameraId);
+  await page.waitForTimeout(4000);
   await page.getByRole('button',{name:'Live Cameras',exact:true}).click();
   await page.getByPlaceholder('Search camera ID or location...').fill(cameraId);
+  await page.getByTitle('Disconnect Stream',{exact:true}).click();
+  await page.getByRole('button',{name:'Reconnect Camera',exact:true}).click();
   await page.waitForFunction(id=>document.querySelector(`img[alt="CCTV Stream ${id}"]`)?.naturalWidth===1920,cameraId,{timeout:45000});
   await page.getByAltText(`CCTV Stream ${cameraId}`).click();
   for(let i=0;i<3;i++) {

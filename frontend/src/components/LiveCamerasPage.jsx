@@ -7,6 +7,7 @@ export default function LiveCamerasPage({ cameras, onSelectCamera, onToggleConne
   const [filterStatus, setFilterStatus] = useState('ALL');
   const [pageIndex,setPageIndex] = useState(0);
   const [exportError,setExportError] = useState('');
+  const [imageErrors,setImageErrors] = useState({});
   useEffect(()=>setPageIndex(0),[searchTerm,filterStatus]);
 
   const filteredCameras = cameras.filter((cam) => {
@@ -161,22 +162,14 @@ export default function LiveCamerasPage({ cameras, onSelectCamera, onToggleConne
                   <img
                     src={`/api/cameras/${cam.id}/annotated`}
                     alt={`CCTV Stream ${cam.id}`}
-                    className="w-full h-full object-cover group-hover:scale-[1.01] transition-transform duration-300"
-                    onError={(e) => {
-                      e.target.style.display = "none";
-                      const errDiv = e.target.nextSibling;
-                      if (errDiv) errDiv.style.display = "flex";
-                    }}
-                    onLoad={(e) => {
-                      e.target.style.display = "block";
-                      const errDiv = e.target.nextSibling;
-                      if (errDiv) errDiv.style.display = "none";
-                    }}
+                    className={`w-full h-full object-cover group-hover:scale-[1.01] transition-transform duration-300 ${imageErrors[cam.id] ? 'hidden' : ''}`}
+                    onError={() => setImageErrors(previous => previous[cam.id] ? previous : {...previous,[cam.id]:true})}
+                    onLoad={() => setImageErrors(previous => previous[cam.id] ? {...previous,[cam.id]:false} : previous)}
                   />
                 ) : null}
 
                 {/* Step 9: Informative Video Overlay Placeholder */}
-                <div className={`${isConnected ? 'hidden' : 'flex'} absolute inset-0 bg-slate-100 flex flex-col items-center justify-center p-4 text-center text-slate-600`}>
+                <div className={`${isConnected && !imageErrors[cam.id] ? 'hidden' : 'flex'} absolute inset-0 bg-slate-100 flex-col items-center justify-center p-4 text-center text-slate-600`}>
                   <div className="p-3 bg-blue-50 rounded-full text-[#1976D2] mb-1.5">
                     <Video className="w-6 h-6 animate-pulse" />
                   </div>
