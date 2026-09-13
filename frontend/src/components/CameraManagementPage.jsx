@@ -94,6 +94,7 @@ export default function CameraManagementPage({ cameras, onToggleConnection, onSe
           <tbody className="divide-y divide-slate-100 font-medium">
             {filteredCameras.map((cam) => {
               const isConnected = cam.connection_status === 'CONNECTED' || cam.connection_status === 'CONNECTING';
+              const isRunning = cam.stream_telemetry?.worker_running ?? isConnected;
 
               return (
                 <tr key={cam.id} className="hover:bg-slate-50 transition-colors">
@@ -112,19 +113,19 @@ export default function CameraManagementPage({ cameras, onToggleConnection, onSe
                         : 'bg-slate-100 text-slate-600 border-slate-200'
                     }`}>
                       <span className={`w-1.5 h-1.5 rounded-full ${isConnected ? 'bg-emerald-500 animate-live-pulse' : 'bg-slate-400'}`} />
-                      {isConnected ? 'ONLINE' : 'DISCONNECTED'}
+                      {cam.connection_status || 'DISCONNECTED'}
                     </span>
                   </td>
                   <td className="p-4 text-right space-x-2">
                     <button
-                      onClick={() => onToggleConnection(cam.id, !isConnected)}
+                      onClick={() => onToggleConnection(cam.id, !isRunning)}
                       className={`px-3 py-1.5 rounded-lg text-xs font-semibold transition-all ${
                         isConnected
                           ? 'bg-rose-50 hover:bg-rose-100 text-rose-700 border border-rose-200'
                           : 'bg-emerald-50 hover:bg-emerald-100 text-emerald-700 border border-emerald-200'
                       }`}
                     >
-                      {isConnected ? 'Disconnect' : 'Connect Worker'}
+                      {isRunning ? 'Disconnect' : 'Connect Worker'}
                     </button>
                     <button
                       onClick={() => onSelectCamera(cam)}

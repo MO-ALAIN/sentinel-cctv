@@ -41,3 +41,18 @@ prove a real cross-camera vehicle journey. Missing real evidence stays explicit.
 Current evidence and limitations: CURRENT_STATUS.md and SUBMISSION_READINESS.md.
 This is a work schedule, not an unattended recurring job. Continue from the highest
 unfinished acceptance condition whenever work resumes.
+
+
+## Progress recorded 13 September
+
+- Recognition refinement and full two-scene regressions completed on 12 September.
+- Worker admission, stalled-source controls, mixed-source runtime observation and
+  actual process-restart preservation checks completed on 13 September; 46 local
+  tests and browser checks pass. See RUNTIME_VALIDATION.md for measured limits.
+- Remaining before freeze: check the release CI, repeat critical operator workflow
+  if further code changes occur, and record unresolved source/metadata prerequisites.
+- Indian plate accuracy and distinct VMS access remain unverified. Extra labels or
+  synthetic evidence cannot close those gaps. Final demos, PPT/PDF and HLD must
+  use the same frozen release and retain these limitations.
+- Official home/phases were unavailable through the browsing tool on 13 September;
+  exact closing hour is still unverified. Keep the earlier internal target.

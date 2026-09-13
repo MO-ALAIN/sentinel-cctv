@@ -8,6 +8,7 @@ export default function CameraFocusModal({ camera, analytics, onClose, onToggleC
   const [isSyncing, setIsSyncing] = useState(false);
 
   const isConnected = camera.connection_status === 'CONNECTED' || camera.connection_status === 'CONNECTING' || camera.mode === 'VISDRONE_DEMO';
+  const isRunning = camera.stream_telemetry?.worker_running ?? isConnected;
   const streamUrl = camera.id?.startsWith('CAM-DEMO-') || streamMode === 'DEMO'
     ? `/api/demo/cameras/${camera.id}/annotated` 
     : `/api/cameras/${camera.id}/annotated`;
@@ -126,13 +127,13 @@ export default function CameraFocusModal({ camera, analytics, onClose, onToggleC
                 <div className="p-4 bg-blue-50 rounded-full text-[#1976D2] mb-2">
                   <Video className="w-8 h-8" />
                 </div>
-                <span className="text-sm font-bold text-[#12355B]">Connecting to CCTV Stream...</span>
-                <span className="text-xs text-slate-500 mt-1 font-medium">Establishing secure video connection</span>
+                <span className="text-sm font-bold text-[#12355B]">{camera.connection_status || 'DISCONNECTED'}</span>
+                <span className="text-xs text-slate-500 mt-1 font-medium">{camera.stream_telemetry?.error_message || 'Connect an authorized source to view frames.'}</span>
                 <button
-                  onClick={() => onToggleConnection(camera.id, true)}
+                  onClick={() => onToggleConnection(camera.id, !isRunning)}
                   className="mt-3 px-4 py-2 bg-[#1976D2] hover:bg-blue-700 text-white text-xs font-semibold rounded-lg shadow-xs transition-all"
                 >
-                  Connect Stream Now
+                  {isRunning ? 'Disconnect Stream' : 'Connect Stream Now'}
                 </button>
               </div>
             </div>
@@ -141,14 +142,14 @@ export default function CameraFocusModal({ camera, analytics, onClose, onToggleC
             <div className="flex items-center justify-between bg-slate-50 p-3.5 rounded-xl border border-slate-200 text-xs">
               <span className="text-slate-600 text-[11px]">Source: {camera.source_type || 'UNKNOWN'} · Camera {camera.id}</span>
               <button
-                onClick={() => onToggleConnection(camera.id, !isConnected)}
+                onClick={() => onToggleConnection(camera.id, !isRunning)}
                 className={`px-3 py-1.5 rounded-lg font-semibold transition-all ${
                   isConnected
                     ? 'bg-rose-50 hover:bg-rose-100 text-rose-700 border border-rose-200'
                     : 'bg-emerald-50 hover:bg-emerald-100 text-emerald-700 border border-emerald-200'
                 }`}
               >
-                {isConnected ? 'Disconnect Stream' : 'Connect Stream'}
+                {isRunning ? 'Disconnect Stream' : 'Connect Stream'}
               </button>
             </div>
           </div>

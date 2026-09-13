@@ -1,10 +1,31 @@
-# Current status — 12 September 2026
+# Current status — 13 September 2026
+
+## Latest reliability revision
+
+Configurable unified camera-worker admission now defaults to two. Concurrent
+connects cannot overrun that limit; ended recordings free a slot, and stalled
+sources remain disconnectable in the interface. The limit is a resource safeguard,
+not a proven throughput rating. Local validation: **46 backend tests**, frontend
+build and both browser checks pass.
+
+A real 60-second organizer-plus-recording run had zero sampled API errors; median/
+maximum health latency was 6.63/452.82 ms. CarPark decoded all 600 frames and produced
+four known plate observations. The organizer report contained two vehicle events
+and no confirmed plate. Actual process restart preserved 40 sightings, 2 watchlist
+entries and 19 alerts; the selected network feed resumed and the recording stayed
+stopped. See [runtime evidence and limitations](RUNTIME_VALIDATION.md).
+
+The preceding NMS release passed Linux CI:
+https://github.com/MO-ALAIN/sentinel-cctv/actions/runs/34693387638 . The reliability
+revision's CI result should be checked on the latest GitHub commit before freezing.
+Rollback: `data/before-workload-limit-sept13.zip` and matching `.db`; interface
+rollback: `data/before-stalled-controls-sept13.zip`.
 
 ## GitHub and hosting
 
 Public source: https://github.com/MO-ALAIN/sentinel-cctv . Add collaborators in
 repository Settings. Render configuration, strong generated login passwords,
-persistent storage and deployment instructions are included. The final Linux CI
+persistent storage and deployment instructions are included. The earlier OCR Linux CI
 run passed all 43 regressions, the frontend build, CPU container build/startup,
 authentication checks and readiness checks for vehicle detection, plate detection
 and OCR. Verified run: https://github.com/MO-ALAIN/sentinel-cctv/actions/runs/34692539002 .

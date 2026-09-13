@@ -6,7 +6,7 @@ import numpy as np
 from typing import List, Dict, Any, Optional
 from fastapi import APIRouter, HTTPException, Query, Request
 from fastapi.responses import StreamingResponse
-from app.services.stream_manager import stream_manager
+from app.services.stream_manager import stream_manager, StreamCapacityError
 from app.services.catalogue import catalogue_service
 from app.services.yolo_service import yolo_detector
 
@@ -99,11 +99,7 @@ async def generate_annotated_mjpeg_frames(camera_id: str):
     Instantly sends an initial JPEG frame so HTTP response headers open immediately in browser (< 5ms).
     """
     worker = stream_manager.get_worker(camera_id)
-    if not worker:
-        # Start camera worker automatically if not running
-        cam_info = await catalogue_service.get_camera_by_id(camera_id)
-        if cam_info:
-            worker = stream_manager.start_camera(camera_id, cam_info["rtsp_url"])
+    # Admission happens before StreamingResponse headers are sent.
 
     if worker:
         worker.stream_clients += 1
@@ -157,7 +153,10 @@ async def annotated_mjpeg_stream(camera_id: str):
         cam = await catalogue_service.get_camera_by_id(camera_id)
         if not cam:
             raise HTTPException(status_code=404, detail=f"Camera '{camera_id}' not found in catalogue.")
-        worker = stream_manager.start_camera(camera_id, cam["rtsp_url"])
+        try:
+            worker = stream_manager.start_camera(camera_id, cam["rtsp_url"])
+        except StreamCapacityError as error:
+            raise HTTPException(409, str(error)) from error
 
     return StreamingResponse(
         generate_annotated_mjpeg_frames(camera_id),

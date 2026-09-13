@@ -126,6 +126,7 @@ export default function LiveCamerasPage({ cameras, onSelectCamera, onToggleConne
         {displayedCameras.map((cam) => {
           const status = cam.connection_status || 'OFFLINE';
           const isConnected = status === 'LIVE' || status === 'CONNECTED' || status === 'CONNECTING';
+          const isRunning = cam.stream_telemetry?.worker_running ?? isConnected;
 
           return (
             <div
@@ -139,13 +140,13 @@ export default function LiveCamerasPage({ cameras, onSelectCamera, onToggleConne
                   <span className="text-xs font-bold text-[#12355B] truncate">{cam.name || cam.id}</span>
                 </div>
                 <button
-                  onClick={() => onToggleConnection(cam.id, !isConnected)}
+                  onClick={() => onToggleConnection(cam.id, !isRunning)}
                   className={`p-1.5 rounded-lg text-xs transition-all ${
-                    isConnected
+                    isRunning
                       ? 'bg-rose-50 text-rose-700 hover:bg-rose-100 border border-rose-200'
                       : 'bg-emerald-50 text-emerald-700 hover:bg-emerald-100 border border-emerald-200'
                   }`}
-                  title={isConnected ? 'Disconnect Stream' : 'Connect Stream'}
+                  title={isRunning ? 'Disconnect Stream' : 'Connect Stream'}
                 >
                   <Power className="w-3.5 h-3.5" />
                 </button>

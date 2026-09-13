@@ -1,4 +1,4 @@
-# Submission readiness — 12 September 2026
+# Submission readiness — 13 September 2026
 
 ## Understand the challenge
 
@@ -129,3 +129,13 @@ unproven. Previous results remain in OCR_VALIDATION.md. All 43 local backend tes
 pass. A sequential 29-feed organizer survey and two bounded actual-app vehicle
 reports are described in ORGANIZER_SOURCE_CHECK.md; neither new report confirmed
 a plate. These are supporting measurements, not the final frozen-version videos.
+
+
+### 13 September runtime and recovery evidence
+
+RUNTIME_VALIDATION.md records the two-worker admission guard, a short real mixed-source
+run and an actual restart preserving 40 sightings, 2 watchlist entries and 19 alerts.
+The local suite now has 46 passing checks. The registry remains unrestricted by the
+configured active-worker count; larger analytics workloads require measured hardware
+sizing. These results improve platform reliability but do not establish 50-camera
+capacity, 80,000-camera deployment, Indian recognition or two VMS integration.

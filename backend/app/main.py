@@ -10,7 +10,7 @@ from app.paths import ensure_directories
 from app.api import cameras, detections, tracks, anpr, analytics, demo, investigation
 from app.services.demo_manager import demo_camera_manager
 from app.db.database import init_db
-from app.services.stream_manager import stream_manager
+from app.services.stream_manager import stream_manager, StreamCapacityError
 from app.services.catalogue import catalogue_service
 from app.services.yolo_service import yolo_detector
 from app.services.anpr_service import anpr_manager
@@ -49,7 +49,10 @@ async def lifespan(app: FastAPI):
         if cam.get('desired_connected') and cam.get('source_type') != 'RECORDED':
             source = await catalogue_service.get_camera_by_id(cam['id'])
             if source and source.get('rtsp_url'):
-                stream_manager.start_camera(cam['id'],source['rtsp_url'])
+                try:
+                    stream_manager.start_camera(cam['id'],source['rtsp_url'])
+                except StreamCapacityError:
+                    logger.warning('Camera %s not restored: configured worker limit reached', cam['id'])
 
     # 4. Initialize VisDrone Demo Mode Camera Manager
     try:
@@ -144,7 +147,8 @@ async def health():
         "status": "READY" if yolo_detector.model is not None else "DEGRADED",
         "ai": yolo_detector.get_telemetry(),
         "catalogue_error": catalogue_service.last_error,
-        "active_streams": len(stream_manager.get_active_camera_ids()),
+        "active_streams": stream_manager.get_capacity()["active_workers"],
+        "camera_capacity": stream_manager.get_capacity(),
         "yolo_device": yolo_detector.device_name,
         "ocr_gpu": anpr_manager.gpu_available
     }

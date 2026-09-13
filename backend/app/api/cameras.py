@@ -8,7 +8,7 @@ from app.services.sighting_repository import sighting_repo
 from app.api.registry_tools import public_camera
 from fastapi.responses import StreamingResponse, Response
 from app.services.catalogue import catalogue_service
-from app.services.stream_manager import stream_manager
+from app.services.stream_manager import stream_manager, StreamCapacityError
 from app.services.anpr_assessor import anpr_assessor
 from app.services.anpr_diagnostic import anpr_diagnostic_service
 
@@ -215,7 +215,10 @@ async def connect_camera(camera_id: str,request: Request):
     rtsp_url = cam["rtsp_url"]
     if not rtsp_url:
         raise HTTPException(422,"Configure a video source in the registry first")
-    worker = stream_manager.start_camera(camera_id, rtsp_url)
+    try:
+        worker = stream_manager.start_camera(camera_id, rtsp_url)
+    except StreamCapacityError as error:
+        raise HTTPException(409, str(error)) from error
     sighting_repo.set_connection_intent(camera_id,True,actor(request)['name'])
     return {
         "status": "SUCCESS",

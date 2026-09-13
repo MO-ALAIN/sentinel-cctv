@@ -8,6 +8,7 @@ from typing import Literal
 class Settings(BaseSettings):
     FETCH_CATALOGUE_ON_START: bool = False
     AI_ENABLED: bool = True
+    MAX_ACTIVE_CAMERAS: int = Field(default=2, ge=1, le=64)
     ALLOW_MODEL_DOWNLOAD: bool = False
     CORS_ORIGINS: str = "http://localhost:5173,http://127.0.0.1:5173"
     CATALOGUE_URL: str = "https://cctv.corp8.cloud/cameras.json"
