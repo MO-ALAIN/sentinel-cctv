@@ -79,7 +79,7 @@ Collect source owner and authorized contacts; camera/VMS vendor/model/firmware; 
 
 ## Validation and rollout
 
-Use the requirement register for current evidence. First prove a small real multi-camera journey; then increase to the available organizer feed count while measuring misses, false matches, ID switches, latency percentiles, GPU memory, queue age and reconnect recovery. Progress from authorized pilot sites to regional deployment before statewide capacity claims. Organizer authentication and GPU inference now work; remaining inputs include plate-readable own-source footage, independent labels and verified geographic metadata.
+Use the requirement register for current evidence. First prove a small real multi-camera journey; then increase to the available organizer feed count while measuring misses, false matches, ID switches, latency percentiles, GPU memory, queue age and reconnect recovery. Progress from authorized pilot sites to regional deployment before statewide capacity claims. Organizer authentication and GPU inference work. Licensed foreign footage and its author labels now support a working own-source demonstration; representative Indian plate footage, genuinely independent source-system access and verified geographic metadata remain open.
 
 ## Surveyed geographic coverage
 
@@ -98,3 +98,27 @@ Poor-quality or undersized plate crops do not supply confirmation votes. They pr
 Camera-specific ANPR_CAMERA_FORMATS defaults to INDIA. FINLAND_STANDARD is an explicitly configured limited car/trailer grammar for the licensed public demonstration. It does not relax organizer-camera validation. Embedded uncertain OCR strokes are rejected instead of silently deleted into a different registration. The recognizer never uses the target watchlist plate as a decoding hint.
 
 A repeat match within two seconds of source media time for the same camera, session and watchlist entry keeps its sighting but suppresses an immediate duplicate notification. Other cameras, later appearances and new replay sessions remain alertable. Missing media-time evidence does not trigger this suppression. This is notification grouping, not a claim of solved physical-vehicle re-identification.
+
+
+## Measured local release — 13 September 2026
+
+The optional CCT-S-v2 ONNX OCR engine runs on CPU; pinned weights, source-format
+checks and independent-frame confirmation are retained. Cross-class vehicle NMS
+suppresses overlapping vehicle labels before tracking. OCR_VALIDATION.md preserves
+both earlier failures and complete regression results, with sample-size limits.
+
+Unified camera workers have atomic admission with MAX_ACTIVE_CAMERAS (default 2).
+This bounds simultaneous decoder/analytics workers without limiting registry size.
+Existing workers are reused; completed recordings release their slot. Reconnecting
+workers still count, and operators can disconnect stalled feeds. Source restoration
+respects the same bound and skips excess saved intents without aborting startup.
+One process owns the local model/worker state; do not multiply web workers to scale
+this SQLite/GPU configuration. Legacy diagnostic/demo tools are separate and must
+not be treated as validated concurrent workloads.
+
+The real mixed-source check and process-restart drill are in RUNTIME_VALIDATION.md.
+All previous 40 sightings, 2 watchlist entries and 19 alerts survived that restart.
+The chosen network source resumed; recorded sources did not auto-replay. Two workers
+is a configurable resource limit, not a measured sustained throughput rating or a
+substitute for regional sizing. Longer soak tests, queue/backpressure design and
+independent vendor integration remain necessary for production rollout.

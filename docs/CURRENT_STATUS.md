@@ -1,5 +1,16 @@
 # Current status — 13 September 2026
 
+## Camera shutdown responsiveness
+
+Slow camera shutdown now runs outside both the API event loop and shared camera
+registry lock. Other source/status requests remain available. Reconnect is rejected
+while a previous worker is stopping, unfinished workers remain registered/countable,
+and shutdown still attempts other sources after a stop timeout. The automated suite
+now passes **49 tests**, including controlled slow-stop and concurrent HTTP checks.
+The preceding admission/recovery release passed all GitHub checks:
+https://github.com/MO-ALAIN/sentinel-cctv/actions/runs/34735988900 .
+Rollback: `data/before-responsive-stop-sept13.zip`.
+
 ## Latest reliability revision
 
 Configurable unified camera-worker admission now defaults to two. Concurrent

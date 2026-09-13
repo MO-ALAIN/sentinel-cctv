@@ -90,3 +90,87 @@ def test_capacity_rejection_is_clear_before_connect_or_stream_headers(client, mo
         assert response.status_code == 409
         assert 'Disconnect another camera' in response.json()['detail']
     assert not sighting_repo.get_camera('A')['desired_connected']
+
+
+
+def test_slow_stop_releases_shared_lock_and_prevents_reconnect(monkeypatch):
+    import threading
+    value = manager(monkeypatch)
+    a = value.start_camera('A', 'test-source')
+    b = value.start_camera('B', 'test-source')
+    entered, release = threading.Event(), threading.Event()
+    def slow_stop():
+        entered.set()
+        if not release.wait(3):
+            raise RuntimeError('Test stop timed out')
+        a.alive = False
+    a.stop = slow_stop
+    with ThreadPoolExecutor(max_workers=2) as pool:
+        stopping = pool.submit(value.stop_camera, 'A')
+        try:
+            assert entered.wait(1)
+            assert pool.submit(value.get_worker, 'B').result(timeout=1) is b
+            assert value.get_capacity()['active_workers'] == 2
+            with pytest.raises(module.StreamBusyError):
+                value.start_camera('A', 'replacement-source')
+            with pytest.raises(module.StreamBusyError):
+                value.stop_camera('A')
+            assert not stopping.done()
+        finally:
+            release.set()
+        assert stopping.result(timeout=1)
+    assert value.get_worker('A') is None
+    assert value.get_worker('B') is b
+
+
+def test_unfinished_stop_keeps_worker_and_shutdown_attempts_other_cameras(monkeypatch):
+    import threading
+    value = manager(monkeypatch)
+    a = value.start_camera('A', 'test-source')
+    b = value.start_camera('B', 'test-source')
+    a._stop_event = threading.Event()
+    def fails():
+        a._stop_event.set()
+        raise RuntimeError('Decode still running')
+    a.stop = fails
+    with pytest.raises(module.StreamBusyError):
+        value.stop_camera('A')
+    assert value.get_worker('A') is a
+    with pytest.raises(module.StreamBusyError):
+        value.start_camera('A', 'new-source')
+    with pytest.raises(module.StreamCapacityError):
+        value.start_camera('C', 'new-source')
+    value.stop_all()
+    assert value.get_worker('A') is a and a.alive
+    assert value.get_worker('B') is None and not b.alive
+    with pytest.raises(module.StreamBusyError):
+        value.start_camera('C', 'new-source')
+
+
+def test_disconnect_keeps_other_http_requests_responsive(client, monkeypatch):
+    import threading
+    from app.api import cameras
+    from app.services.sighting_repository import sighting_repo
+    client.app.include_router(cameras.router)
+    client.post('/api/registry/cameras', json=camera('A'))
+    sighting_repo.set_connection_intent('A', True, 'test')
+    value = manager(monkeypatch)
+    a = value.start_camera('A', 'test-source')
+    entered, release = threading.Event(), threading.Event()
+    def slow_stop():
+        entered.set()
+        if not release.wait(3):
+            raise RuntimeError('Test stop timed out')
+        a.alive = False
+    a.stop = slow_stop
+    monkeypatch.setattr(cameras, 'stream_manager', value)
+    with ThreadPoolExecutor(max_workers=1) as pool:
+        stopping = pool.submit(client.post, '/api/cameras/A/disconnect')
+        try:
+            assert entered.wait(1)
+            assert client.get('/api/registry/stats').status_code == 200
+            assert not stopping.done()
+            assert not sighting_repo.get_camera('A')['desired_connected']
+        finally:
+            release.set()
+        assert stopping.result(timeout=1).status_code == 200

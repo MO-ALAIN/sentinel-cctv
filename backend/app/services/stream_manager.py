@@ -10,10 +10,16 @@ class StreamCapacityError(RuntimeError):
     pass
 
 
+class StreamBusyError(RuntimeError):
+    pass
+
+
 class MultiCameraStreamManager:
     def __init__(self):
         self._workers: Dict[str, RTSPStreamWorker] = {}
         self._lock = threading.Lock()
+        self._stopping = set()
+        self._shutting_down = False
         self.max_active_cameras = get_settings().MAX_ACTIVE_CAMERAS
 
     def get_worker(self, camera_id: str) -> Optional[RTSPStreamWorker]:
@@ -23,10 +29,14 @@ class MultiCameraStreamManager:
     def start_camera(self, camera_id: str, rtsp_url: str) -> RTSPStreamWorker:
         """Start an independent worker for a camera if not already running."""
         with self._lock:
+            if self._shutting_down or camera_id in self._stopping:
+                raise StreamBusyError("Camera is stopping. Wait for it to finish before reconnecting.")
             worker = self._workers.get(camera_id)
             if worker is not None and worker._thread and worker._thread.is_alive():
+                if getattr(worker, "_stop_event", None) and worker._stop_event.is_set():
+                    raise StreamBusyError("Camera is still stopping. Wait before reconnecting.")
                 return worker
-            running = sum(bool(w._thread and w._thread.is_alive()) for w in self._workers.values())
+            running = sum(cid in self._stopping or bool(w._thread and w._thread.is_alive()) for cid, w in self._workers.items())
             if running >= self.max_active_cameras:
                 raise StreamCapacityError(
                     f"Camera limit reached ({self.max_active_cameras}). Disconnect another camera before connecting this one.")
@@ -46,27 +56,43 @@ class MultiCameraStreamManager:
             return worker
 
     def stop_camera(self, camera_id: str) -> bool:
-        """Stop an independent camera worker without affecting others."""
+        """Wait for one worker without holding the shared camera registry lock."""
         with self._lock:
             worker = self._workers.get(camera_id)
-            if worker:
-                worker.stop()
-                self._workers.pop(camera_id, None)
-                logger.info(f"Stream Manager: Stopped worker for {camera_id}")
-                return True
-            return False
+            if worker is None:
+                return False
+            if camera_id in self._stopping:
+                raise StreamBusyError("Camera is already stopping. Please wait before retrying.")
+            self._stopping.add(camera_id)
+        stopped = False
+        try:
+            worker.stop()
+            stopped = True
+            logger.info("Stream Manager: Stopped worker for %s", camera_id)
+            return True
+        except RuntimeError as error:
+            # Keep a still-running worker registered and counted; never replace it.
+            raise StreamBusyError("Camera is still stopping. Retry after the current video operation finishes.") from error
+        finally:
+            with self._lock:
+                if stopped:
+                    self._workers.pop(camera_id, None)
+                self._stopping.discard(camera_id)
 
     def stop_all(self):
-        """Stop all active camera workers."""
+        """Prevent new starts and attempt every worker even if one cannot stop."""
         with self._lock:
-            for cam_id, worker in list(self._workers.items()):
-                logger.info(f"Stream Manager: Shutting down worker for {cam_id}")
-                worker.stop()
-            self._workers.clear()
+            self._shutting_down = True
+            camera_ids = list(self._workers)
+        for camera_id in camera_ids:
+            try:
+                self.stop_camera(camera_id)
+            except StreamBusyError:
+                logger.warning("Worker %s is still stopping during shutdown", camera_id)
 
     def get_capacity(self):
         with self._lock:
-            active = sum(bool(w._thread and w._thread.is_alive()) for w in self._workers.values())
+            active = sum(cid in self._stopping or bool(w._thread and w._thread.is_alive()) for cid, w in self._workers.items())
             return {"active_workers": active, "max_active_cameras": self.max_active_cameras,
                     "available_slots": max(0, self.max_active_cameras-active)}
 

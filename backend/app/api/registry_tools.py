@@ -110,10 +110,13 @@ def prepare_camera(values):
 
 
 def stop_edited_feeds(rows):
-    from app.services.stream_manager import stream_manager
+    from app.services.stream_manager import stream_manager, StreamBusyError
     for row in rows:
         if stream_manager.get_worker(row['id']):
-            stream_manager.stop_camera(row['id'])
+            try:
+                stream_manager.stop_camera(row['id'])
+            except StreamBusyError as error:
+                raise HTTPException(409, str(error)) from error
         sighting_repo.set_connection_intent(row['id'],False,'registry edit')
 
 

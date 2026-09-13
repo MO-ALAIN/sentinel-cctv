@@ -6,7 +6,7 @@ import numpy as np
 from typing import List, Dict, Any, Optional
 from fastapi import APIRouter, HTTPException, Query, Request
 from fastapi.responses import StreamingResponse
-from app.services.stream_manager import stream_manager, StreamCapacityError
+from app.services.stream_manager import stream_manager, StreamCapacityError, StreamBusyError
 from app.services.catalogue import catalogue_service
 from app.services.yolo_service import yolo_detector
 
@@ -155,7 +155,7 @@ async def annotated_mjpeg_stream(camera_id: str):
             raise HTTPException(status_code=404, detail=f"Camera '{camera_id}' not found in catalogue.")
         try:
             worker = stream_manager.start_camera(camera_id, cam["rtsp_url"])
-        except StreamCapacityError as error:
+        except (StreamCapacityError, StreamBusyError) as error:
             raise HTTPException(409, str(error)) from error
 
     return StreamingResponse(

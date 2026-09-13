@@ -1,4 +1,5 @@
 import logging
+import asyncio
 from contextlib import asynccontextmanager
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
@@ -65,7 +66,7 @@ async def lifespan(app: FastAPI):
     # Cleanup on shutdown
     logger.info("Shutting down CCTV Surveillance Platform Backend...")
     demo_camera_manager.shutdown()
-    stream_manager.stop_all()
+    await asyncio.to_thread(stream_manager.stop_all)
     await catalogue_service.close()
     sighting_repo.close()
     logger.info("Shutdown complete.")

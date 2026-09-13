@@ -8,7 +8,7 @@ from app.services.sighting_repository import sighting_repo
 from app.api.registry_tools import public_camera
 from fastapi.responses import StreamingResponse, Response
 from app.services.catalogue import catalogue_service
-from app.services.stream_manager import stream_manager, StreamCapacityError
+from app.services.stream_manager import stream_manager, StreamCapacityError, StreamBusyError
 from app.services.anpr_assessor import anpr_assessor
 from app.services.anpr_diagnostic import anpr_diagnostic_service
 
@@ -217,7 +217,7 @@ async def connect_camera(camera_id: str,request: Request):
         raise HTTPException(422,"Configure a video source in the registry first")
     try:
         worker = stream_manager.start_camera(camera_id, rtsp_url)
-    except StreamCapacityError as error:
+    except (StreamCapacityError, StreamBusyError) as error:
         raise HTTPException(409, str(error)) from error
     sighting_repo.set_connection_intent(camera_id,True,actor(request)['name'])
     return {
@@ -228,13 +228,17 @@ async def connect_camera(camera_id: str,request: Request):
     }
 
 @router.post("/{camera_id}/disconnect")
-async def disconnect_camera(camera_id: str,request: Request):
+def disconnect_camera(camera_id: str,request: Request):
     require_role(request,"operator")
     """Stop streaming worker for specified camera."""
-    stopped = stream_manager.stop_camera(camera_id)
+    # FastAPI runs this synchronous endpoint in its thread pool.
+    sighting_repo.set_connection_intent(camera_id,False,actor(request)['name'])
+    try:
+        stopped = stream_manager.stop_camera(camera_id)
+    except StreamBusyError as error:
+        raise HTTPException(409, str(error)) from error
     if not stopped:
         raise HTTPException(status_code=404, detail=f"Camera '{camera_id}' was not actively streaming.")
-    sighting_repo.set_connection_intent(camera_id,False,actor(request)['name'])
     return {"status": "SUCCESS", "message": f"Stream worker stopped for camera '{camera_id}'"}
 
 @router.get("/{camera_id}/health")
