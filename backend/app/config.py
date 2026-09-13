@@ -40,7 +40,8 @@ class Settings(BaseSettings):
     ANPR_OCR_ENGINE: Literal["easyocr", "plate_onnx"] = "easyocr"
     PLATE_OCR_MIN_CHAR_CONFIDENCE: float = Field(default=0.90, ge=0.0, le=1.0)
     ANPR_CAMERA_FORMATS: dict[str, Literal["INDIA", "FINLAND_STANDARD"]] = {}
-    ANPR_MAX_CANDIDATES_PER_TRACK: int = 5
+    ANPR_MAX_CANDIDATES_PER_TRACK: int = Field(default=5, ge=2, le=100)
+    ANPR_MAX_CACHED_TRACKS: int = Field(default=1000, ge=1, le=100000)
     ANPR_MIN_CONFIDENCE: float = 0.45
     ANPR_USE_GPU: bool = True
     ANPR_MIN_PLATE_CHAR_HEIGHT: int = 25

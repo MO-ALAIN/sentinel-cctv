@@ -230,3 +230,10 @@ The historical ownership table and example counts above are planning context, no
 GET /api/detections/export returns an audited CSV of recent active-camera detections (optional camera_id), at most 100 buffered rows per camera and 500 combined. It includes camera/source/session, media offset and timestamp basis, primary detector class/score and any heuristic reclassification. Unconfirmed plate text is blank. This is neither a complete recording nor an accuracy report.
 
 ANPR_CAMERA_FORMATS is a server configuration mapping named cameras to INDIA or FINLAND_STANDARD; the default remains INDIA. Representative public samples are labelled RECORDED. An immediate same-camera/session/watchlist repeat within two media seconds preserves the sighting but does not create another notification. Camera health distinguishes ENDED, DISCONNECTED and FRAME_DELIVERY_ERROR.
+
+
+## Diagnostic job safety (14 September 2026)
+
+- `GET /api/cameras/anpr-diagnostic` and `GET /api/cameras/anpr-diagnostic/{camera_id}` return saved results or `NOT_RUN`; reading never starts video capture.
+- `POST /api/cameras/anpr-diagnostic/run` and `POST /api/cameras/anpr-assessment/run` require operator/admin access. Overlapping diagnostic/assessment work returns HTTP 409. Blocking capture/inference runs outside the API event loop; the job lock remains held until the worker finishes, even if its client disconnects.
+- `/api/anpr` remains a transient recognition view, now capped by `ANPR_MAX_CACHED_TRACKS` (default 1,000). Use investigation history for durable confirmed sightings. `GET /api/anpr/stats` reports cache occupancy, eviction count and actual plate-detector attempt count.

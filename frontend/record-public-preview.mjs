@@ -1,9 +1,10 @@
 import './browser-environment.mjs';
 import {chromium} from '@playwright/test';
 import fs from 'node:fs/promises';
-import {fileURLToPath} from 'node:url';
+import {fileURLToPath,pathToFileURL} from 'node:url';
 import assert from 'node:assert/strict';
-const folder=new URL('../docs/verification/',import.meta.url);
+const folder=process.env.SENTINEL_CAPTURE_DIR ? pathToFileURL(process.env.SENTINEL_CAPTURE_DIR.replace(/[\\/]$/, '') + '/') : new URL('../docs/verification/',import.meta.url);
+await fs.mkdir(folder,{recursive:true});
 const browser=await chromium.launch({channel:'msedge',headless:true});
 const context=await browser.newContext({viewport:{width:1440,height:960},recordVideo:{dir:fileURLToPath(folder),size:{width:1440,height:960}}});
 const page=await context.newPage();const errors=[];page.on('pageerror',e=>errors.push(e.message));

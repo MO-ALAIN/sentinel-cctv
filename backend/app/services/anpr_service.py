@@ -11,6 +11,8 @@ except ImportError:
     torch = None
 import threading
 import uuid
+import copy
+from collections import OrderedDict, Counter
 from app.paths import EVIDENCE_DIR
 from datetime import datetime, timezone
 from typing import Dict, List, Any, Optional, Tuple
@@ -174,6 +176,9 @@ class ANPRManager:
         # Track keys already written to the durable sighting store (one sighting per
         # camera appearance â€” recorded once when the plate first becomes confirmed).
         self._persisted_tracks: set = set()
+        self._live_tracks = OrderedDict()
+        self.evicted_tracks = 0
+        self.detector_runs_count = 0
 
         # Telemetry & Diagnostic Rejection Counters
         self.total_vehicles_analysed: int = 0
@@ -221,7 +226,18 @@ class ANPRManager:
 
     def process_vehicle_crop(self, *args, **kwargs):
         with self._ocr_lock:
-            return self._process_vehicle_crop(*args, **kwargs)
+            # Callers must not hold mutable recognition state after this lock is released.
+            return copy.deepcopy(self._process_vehicle_crop(*args, **kwargs))
+
+    def _touch_track(self, key):
+        self._live_tracks[key] = None
+        self._live_tracks.move_to_end(key)
+        while len(self._live_tracks) > self.settings.ANPR_MAX_CACHED_TRACKS:
+            expired, _ = self._live_tracks.popitem(last=False)
+            self._candidate_buffers.pop(expired, None)
+            self._anpr_records.pop(expired, None)
+            self._persisted_tracks.discard(expired)
+            self.evicted_tracks += 1
 
     def _process_vehicle_crop(
         self,
@@ -243,14 +259,17 @@ class ANPRManager:
             return None
 
         plate_format = self.settings.ANPR_CAMERA_FORMATS.get(camera_id, 'INDIA')
-        track_key = f"{camera_id}_{session_id or 'legacy'}_{track_id}"
+        track_key = (camera_id, session_id or 'legacy', track_id)
+        self._touch_track(track_key)
         if track_key in self._persisted_tracks:
+            self._anpr_records[track_key]['last_seen'] = timestamp
             return self._anpr_records.get(track_key)
         det_start = time.time()
 
         # Step 2 & 3: Run Modular License Plate Detector (Primary Trained + Secondary Fallback with ROI)
         plate_candidates = modular_plate_detector.detect_plates(full_frame, vehicle_bbox=vehicle_bbox)
         det_latency = (time.time() - det_start) * 1000.0
+        self.detector_runs_count += 1
         self.total_det_latency_ms += det_latency
 
         if not plate_candidates:
@@ -261,6 +280,8 @@ class ANPRManager:
         det_conf = best_cand["confidence"]
         det_method = best_cand["detection_method"]
         abs_plate_bbox = best_cand.get("abs_bbox", best_cand["bbox"])
+        if not np.isfinite(det_conf) or not 0 <= det_conf <= 1:
+            return None
 
         ph, pw = plate_crop.shape[:2]
 
@@ -339,7 +360,9 @@ class ANPRManager:
         }
 
         buf = self._candidate_buffers[track_key]
-        buf.append(cand_entry)
+        # Numpy plate crops can be views into a full HD frame. Historical quality
+        # metadata needs no pixels; keeping the view would retain the entire frame.
+        buf.append({k: v for k, v in cand_entry.items() if k != 'plate_crop'})
         if len(buf) > self.settings.ANPR_MAX_CANDIDATES_PER_TRACK:
             buf.pop(0)
 
@@ -370,11 +393,16 @@ class ANPRManager:
             if ocr_out:
                 txt_parts = [r[1] for r in ocr_out if len(r) >= 2]
                 conf_parts = [r[2] for r in ocr_out if len(r) >= 3]
-                raw_txt = " ".join(txt_parts)
-                ocr_conf = float(np.mean(conf_parts)) if conf_parts else 0.5
+                scores = np.asarray(conf_parts, dtype=float)
+                # Every text segment needs valid confidence. A high-confidence
+                # prefix must not hide an uncertain registration suffix.
+                if len(conf_parts) == len(txt_parts) and scores.size and np.isfinite(scores).all() and ((scores >= 0) & (scores <= 1)).all():
+                    raw_txt = " ".join(txt_parts)
+                    ocr_conf = float(scores.min())
 
             is_valid, final_plate, val_score = validate_plate_for_source(raw_txt, plate_format)
-            composite_score = ocr_conf * top_cand["det_confidence"] * val_score
+            detector_score = top_cand["det_confidence"]
+            composite_score = ocr_conf * detector_score * val_score if np.isfinite(detector_score) and 0 <= detector_score <= 1 else 0.0
 
             if composite_score > highest_composite_score:
                 highest_composite_score = composite_score
@@ -435,28 +463,33 @@ class ANPRManager:
                 "last_seen": timestamp,
                 "best_frame_timestamp": top_cand["timestamp"],
                 "abs_plate_bbox": top_cand["abs_plate_bbox"],
-                "consensus_votes": {final_plate: 1} if status == "CONFIRMED" else {},
-                "voted_timestamps": {timestamp}
+                "consensus_votes": {},
+                "voted_timestamps": set()
             }
-        else:
-            rec = self._anpr_records[track_key]
-            rec["last_seen"] = timestamp
-            
-            if status == "CONFIRMED" and timestamp not in rec.get("voted_timestamps", set()):
-                rec.setdefault("voted_timestamps", set()).add(timestamp)
-                votes = rec["consensus_votes"]
-                votes[final_plate] = votes.get(final_plate, 0) + 1
-                winner = max(votes.keys(), key=lambda k: votes[k])
-                rec["plate_number"] = winner
-                rec["status"] = "CONFIRMED" if votes[winner] >= 2 and winner == final_plate else "LOW_CONFIDENCE"
-                rec["rejection_reason"] = None
-                rec["plate_confidence"] = max(rec["plate_confidence"], round(highest_composite_score, 3))
-                rec["abs_plate_bbox"] = top_cand["abs_plate_bbox"]
+        rec = self._anpr_records[track_key]
+        rec['last_seen'] = timestamp
+        if status == 'CONFIRMED' and timestamp not in rec.get('voted_timestamps', set()):
+            qualified = rec.setdefault('qualifying_votes', [])
+            qualified.append({'plate': final_plate, 'timestamp': timestamp, 'score': highest_composite_score})
+            del qualified[:-self.settings.ANPR_MAX_CANDIDATES_PER_TRACK]
+            votes = Counter(v['plate'] for v in qualified)
+            winner, count = votes.most_common(1)[0]
+            # Tied conflicting strings remain provisional. The confidence belongs
+            # to this registration, never to a stronger read of a different plate.
+            unique_winner = sum(n == count for n in votes.values()) == 1
+            rec.update(consensus_votes=dict(votes), voted_timestamps={v['timestamp'] for v in qualified},
+                plate_number=winner, status='CONFIRMED' if count >= 2 and unique_winner and winner == final_plate else 'LOW_CONFIDENCE',
+                rejection_reason=None)
+            if winner == final_plate:
+                rec.update(plate_confidence=round(min(v['score'] for v in qualified if v['plate'] == winner), 3),
+                    detector_confidence=round(det_conf, 3), ocr_confidence=round(best_variant_result['ocr_conf'], 3),
+                    abs_plate_bbox=top_cand['abs_plate_bbox'], best_frame_timestamp=timestamp,
+                    plate_width=pw, plate_height=ph, detection_method=det_method)
 
         # --- Durable sighting persistence (enables cross-camera trace + watchlist alerts) ---
         self._anpr_records[track_key]["plate_format"] = plate_format
 
-        # Write ONCE per (camera, track) the first time the plate is confirmed/low-confidence.
+        # Write only after independent qualified frames confirm the same plate.
         rec = self._anpr_records[track_key]
         if status == "CONFIRMED" and rec["status"] == "CONFIRMED" and final_plate == rec["plate_number"] and track_key not in self._persisted_tracks:
             try:
@@ -476,6 +509,7 @@ class ANPRManager:
                     timestamp_basis=timestamp_basis,
                 )
                 self._persisted_tracks.add(track_key)
+                self._candidate_buffers.pop(track_key, None)
             except Exception as e:
                 logger.error(f"Failed to persist sighting for {track_key}: {e}")
 
@@ -499,11 +533,12 @@ class ANPRManager:
             return None
 
     def reset_camera(self, camera_id):
-        prefix = camera_id + "_"
-        for store in (self._candidate_buffers, self._anpr_records):
-            for key in list(store):
-                if key.startswith(prefix): store.pop(key, None)
-        self._persisted_tracks = {k for k in self._persisted_tracks if not k.startswith(prefix)}
+        with self._ocr_lock:
+            for store in (self._candidate_buffers, self._anpr_records, self._live_tracks):
+                for key in list(store):
+                    if key[0] == camera_id:
+                        store.pop(key, None)
+            self._persisted_tracks = {k for k in self._persisted_tracks if k[0] != camera_id}
 
     def get_records(
         self,
@@ -513,7 +548,8 @@ class ANPRManager:
         status: Optional[str] = None,
         limit: int = 100
     ) -> List[Dict[str, Any]]:
-        results = list(self._anpr_records.values())
+        with self._ocr_lock:
+            results = copy.deepcopy(list(self._anpr_records.values()))
 
         if camera_id:
             results = [r for r in results if r["camera_id"] == camera_id]
@@ -532,7 +568,7 @@ class ANPRManager:
         return self.get_records(plate_number=query)
 
     def get_telemetry(self) -> Dict[str, Any]:
-        avg_det = (self.total_det_latency_ms / self.ocr_runs_count) if self.ocr_runs_count > 0 else 0.0
+        avg_det = (self.total_det_latency_ms / self.detector_runs_count) if self.detector_runs_count > 0 else 0.0
         avg_ocr = (self.total_ocr_latency_ms / self.ocr_runs_count) if self.ocr_runs_count > 0 else 0.0
         return {
             "ocr_engine": self.ocr_engine,
@@ -552,7 +588,11 @@ class ANPRManager:
             "rejection_breakdown": self.rejection_breakdown,
             "avg_plate_detection_latency_ms": round(avg_det, 2),
             "avg_ocr_latency_ms": round(avg_ocr, 2),
-            "max_candidates_per_track": self.settings.ANPR_MAX_CANDIDATES_PER_TRACK
+            "max_candidates_per_track": self.settings.ANPR_MAX_CANDIDATES_PER_TRACK,
+            "cached_tracks": len(self._live_tracks),
+            "max_cached_tracks": self.settings.ANPR_MAX_CACHED_TRACKS,
+            "evicted_tracks": self.evicted_tracks,
+            "plate_detector_runs": self.detector_runs_count,
         }
 
 # Global singleton instance

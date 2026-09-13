@@ -8,7 +8,7 @@ logger = logging.getLogger(__name__)
 router = APIRouter(prefix="/api/anpr", tags=["ANPR License Plate Recognition"])
 
 @router.get("", response_model=List[Dict[str, Any]])
-async def get_anpr_records(
+def get_anpr_records(
     camera_id: Optional[str] = None,
     track_id: Optional[int] = None,
     plate_number: Optional[str] = None,
@@ -27,7 +27,7 @@ async def get_anpr_records(
     )
 
 @router.get("/search/{plate_number}", response_model=List[Dict[str, Any]])
-async def search_plate_records(plate_number: str):
+def search_plate_records(plate_number: str):
     """
     Search ANPR records by full or partial license plate registration number.
     """

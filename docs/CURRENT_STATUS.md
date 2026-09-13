@@ -1,4 +1,26 @@
-# Current status — 13 September 2026
+# Current status — 14 September 2026
+
+## Final engineering revision — 14 September 2026
+
+The local backend suite passes **62 tests**. Temporary OCR state now stores quality
+metadata instead of retaining full video frames and is limited to 1,000 recently used
+tracks by default. Confirmed sightings remain durable, including after cache eviction.
+A controlled 12-track test retained 74,649,600 source-image bytes before the change
+and zero after; this measures retained source arrays, not whole-process RAM.
+
+Confirmation uses a bounded window of independent qualified reads, rejects invalid
+confidence and weak OCR segments, and associates confidence with the winning plate.
+Camera resets use exact camera identity. Reading diagnostics never starts capture;
+explicit diagnostic jobs require an operator and run off the API event loop, with
+one diagnostic job at a time. Recognition queries also remain off the event loop.
+
+Both complete foreign-video regressions preserved TP4/FP0/FN0: CarPark, 600 frames
+in 55.45 seconds; ParkingGarage, 1,140 frames in 104.34 seconds. These reused scenes
+contain the same four vehicles. They do not establish Indian accuracy, independent
+VMS interoperability, or real-time throughput. Timings are slower than the earlier
+runs; no speed improvement is claimed. See OCR_VALIDATION.md for history.
+
+Rollback: `data/before-final-anpr-sept13.zip` and matching database snapshot.
 
 ## Camera shutdown responsiveness
 

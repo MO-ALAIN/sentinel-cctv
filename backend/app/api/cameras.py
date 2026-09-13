@@ -1,6 +1,7 @@
 import cv2
 import asyncio
 import logging
+import threading
 from typing import List, Dict, Any, Optional
 from fastapi import APIRouter, HTTPException, BackgroundTasks, Query, Request
 from app.security import require_role, actor
@@ -15,6 +16,23 @@ from app.services.anpr_diagnostic import anpr_diagnostic_service
 logger = logging.getLogger(__name__)
 
 router = APIRouter(prefix="/api/cameras", tags=["Cameras"])
+_diagnostic_job_lock = threading.Lock()
+
+
+async def _run_diagnostic_job(factory):
+    if not _diagnostic_job_lock.acquire(blocking=False):
+        raise HTTPException(409, 'A camera assessment is already running. Wait for it to finish.')
+
+    def execute():
+        try:
+            # Legacy diagnostic routines use blocking video reads and inference.
+            # Keep those operations off the server event loop, including cleanup.
+            return asyncio.run(factory())
+        finally:
+            # Release only when work actually ends, even if the HTTP caller leaves.
+            _diagnostic_job_lock.release()
+
+    return await asyncio.to_thread(execute)
 
 # =====================================================================
 # PHASE 7.7 ANPR DIAGNOSTIC REST APIs
@@ -32,11 +50,7 @@ async def get_anpr_diagnostic():
             "results": list(anpr_diagnostic_service.latest_diagnostics.values())
         }
     
-    summary = await anpr_diagnostic_service.run_diagnostics_selected(
-        camera_ids=["cam15", "cam16", "cam06", "cam04", "cam05"],
-        duration_per_camera=15
-    )
-    return summary
+    return {"status": "NOT_RUN", "total_cameras": 0, "results": []}
 
 @router.get("/anpr-diagnostic/{camera_id}")
 async def get_camera_anpr_diagnostic(camera_id: str):
@@ -51,17 +65,18 @@ async def get_camera_anpr_diagnostic(camera_id: str):
     if not cam:
         raise HTTPException(status_code=404, detail=f"Camera ID '{camera_id}' not found.")
 
-    res = await anpr_diagnostic_service.diagnose_camera(cam, duration_seconds=15)
-    return res
+    return {"status": "NOT_RUN", "camera_id": camera_id}
 
 @router.post("/anpr-diagnostic/run")
 async def run_anpr_diagnostic_job(
+    request: Request,
     duration: int = Query(default=20, ge=10, le=120, description="Duration in seconds per camera"),
     camera_id: Optional[str] = Query(default=None, description="Optional single camera ID to diagnose")
 ):
     """
     Trigger a fresh Phase 7.7 ANPR diagnostic job on government cameras.
     """
+    require_role(request, 'operator')
     if anpr_diagnostic_service.is_running:
         return {
             "status": "RUNNING",
@@ -69,10 +84,10 @@ async def run_anpr_diagnostic_job(
         }
 
     cams = [camera_id] if camera_id else ["cam15", "cam16", "cam06", "cam04", "cam05"]
-    summary = await anpr_diagnostic_service.run_diagnostics_selected(
+    summary = await _run_diagnostic_job(lambda: anpr_diagnostic_service.run_diagnostics_selected(
         camera_ids=cams,
         duration_per_camera=duration
-    )
+    ))
     return summary
 
 # =====================================================================
@@ -138,12 +153,14 @@ async def get_camera_anpr_assessment(camera_id: str):
 
 @router.post("/anpr-assessment/run")
 async def run_fresh_anpr_assessment(
+    request: Request,
     duration: int = Query(default=15, ge=5, le=60, description="Duration in seconds per camera"),
     camera_id: Optional[str] = Query(default=None, description="Optional specific camera ID to assess")
 ):
     """
     Trigger a fresh sequential multi-camera ANPR capability assessment job.
     """
+    require_role(request, 'operator')
     if anpr_assessor.is_running:
         return {
             "status": "RUNNING",
@@ -151,10 +168,10 @@ async def run_fresh_anpr_assessment(
             "latest_assessment": anpr_assessor.latest_assessment
         }
 
-    summary = await anpr_assessor.run_assessment_all_cameras(
+    summary = await _run_diagnostic_job(lambda: anpr_assessor.run_assessment_all_cameras(
         duration_per_camera=duration,
         target_camera_id=camera_id
-    )
+    ))
     return {
         "status": "COMPLETED",
         "assessment_id": summary["assessment_id"],

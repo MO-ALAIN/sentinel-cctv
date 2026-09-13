@@ -2,10 +2,11 @@ import './browser-environment.mjs';
 // Capture the actual local interface, never download the organizer's source file.
 import { chromium } from '@playwright/test';
 import fs from 'node:fs/promises';
-import { fileURLToPath } from 'node:url';
+import { fileURLToPath, pathToFileURL } from 'node:url';
 const cameraId=process.argv[2] || 'cam06';
 if(!/^[A-Za-z0-9_-]{1,64}$/.test(cameraId)) throw new Error('Invalid camera ID');
-const folder=new URL('../docs/verification/',import.meta.url);
+const folder=process.env.SENTINEL_CAPTURE_DIR ? pathToFileURL(process.env.SENTINEL_CAPTURE_DIR.replace(/[\\/]$/, '') + '/') : new URL('../docs/verification/',import.meta.url);
+await fs.mkdir(folder,{recursive:true});
 const browser=await chromium.launch({channel:'msedge',headless:true});
 const context=await browser.newContext({viewport:{width:1440,height:960},recordVideo:{dir:fileURLToPath(folder),size:{width:1440,height:960}}});
 const page=await context.newPage();
@@ -28,7 +29,7 @@ try {
   await page.getByRole('button',{name:'Close camera view',exact:true}).click();
   const downloaded=page.waitForEvent('download');
   await page.getByRole('button',{name:'Export recent detections',exact:true}).click();
-  await (await downloaded).saveAs(fileURLToPath(new URL('government-ui-detections-sept11.csv',folder)));
+  await (await downloaded).saveAs(fileURLToPath(new URL('government-ui-detections.csv',folder)));
   await page.getByRole('button',{name:'More tools',exact:true}).click();
   await page.getByRole('button',{name:'System status',exact:true}).click();
   await page.waitForTimeout(10000);
@@ -49,7 +50,7 @@ try {
   if(errors.length) throw new Error(errors.join('\n'));
 } finally {
   await context.close();
-  await page.video().saveAs(fileURLToPath(new URL('government-preview-draft.webm',folder)));
+  await page.video().saveAs(fileURLToPath(new URL('government-demonstration.webm',folder)));
   await browser.close();
 }
 console.log('Draft interface recording and timestamped runtime report saved.');
